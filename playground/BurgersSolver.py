@@ -1,0 +1,58 @@
+import numpy as np
+from firedrake import *
+
+
+class BurgersSolver:
+    """
+    A class that solves burgers equation for a given initial condition and mesh.
+    """
+    def __init__(self, n, length, nu, degree, t_end):
+        self.mesh = PeriodicIntervalMesh(n, length=length)
+        self.x = SpatialCoordinate(self.mesh)[0]
+        self.space = FunctionSpace(self.mesh, "Lagrange", degree)
+        self.t_end = t_end
+        self.dt = 1./n
+        self.nu = Constant(nu)
+
+        self.u_n1 = Function(self.space, name="u^{n+1}")
+        self.u_n = Function(self.space, name="u^{n}")
+        self.v = TestFunction(self.space)
+    
+
+    def solve(self, u_init):
+        self.u_n.interpolate(u_init)
+        
+        f = (((self.u_n1 - self.u_n)/self.dt) * self.v +
+             self.u_n1 * self.u_n1.dx(0) * self.v + 
+             self.nu*self.u_n1.dx(0)*self.v.dx(0)) * dx
+
+        problem = NonlinearVariationalProblem(f, self.u_n1)
+        solver = NonlinearVariationalSolver(problem)
+
+        for _ in ProgressBar("Time Step").iter(np.linspace(0, self.t_end, int(self.t_end/self.dt))):
+            solver.solve()
+            self.u_n.assign(self.u_n1)
+
+        return self.u_n
+
+
+if __name__ == "__main__":
+    from firedrake.pyplot import plot
+    import matplotlib.pyplot as plt
+    
+    params = {
+    "n": 100,
+    "length": 2,
+    "nu": 1e-2,
+    "degree": 2,
+    "t_end": 1
+    }
+    
+    burgers = BurgersSolver(**params)
+    u_init = sin(2*pi*burgers.x)
+    u = burgers.solve(u_init)
+        
+    fig, axes = plt.subplots()
+    plt.grid()
+    plot(u, axes=axes)
+    plt.savefig("media/fig")

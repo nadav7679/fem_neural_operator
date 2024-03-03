@@ -1,0 +1,18 @@
+services:
+  
+  firedrake:
+    image: firedrakeproject/firedrake:latest
+    ports:
+      - "8888:8888"
+    
+    volumes: 
+      - ~/projects/firedrake/playground:/home/firedrake/playground
+
+
+    command: bash -c "
+      source /home/firedrake/firedrake/bin/activate &&
+      pip install jupyter torch &&
+      jupyter notebook --ip 0.0.0.0
+      "
+
+
