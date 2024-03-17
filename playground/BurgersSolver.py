@@ -31,9 +31,11 @@ class BurgersSolver:
 
         self.u_n1.assign(self.u_n)
 
-        fig, axes = plt.subplots()
         for t in np.linspace(0, self.t_end, int(self.t_end/self.dt)):
             if running_plot:
+                if t == 0:
+                    fig, axes = plt.subplots()
+
                 axes.set_title(f"t={t:.3f}")
                 axes.grid()
                 plot(self.u_n, axes=axes)

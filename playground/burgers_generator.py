@@ -37,7 +37,7 @@ def gaussian_field(cg_space, dg_space, cell_area, rg, d=25., s=625.):
 
 # Parameters
 SEED = 12345
-samples = 10
+samples = 1000
 degree, t_end = 1, 2
 nx, length = 100, 1
 d, s, nu = 25, 625, 5e-2
@@ -62,5 +62,5 @@ for i in ProgressBar("Burgers Generator").iter(range(samples)):
     data[i, 0] = torch.tensor(gf.dat.data)
     data[i, 1] = torch.tensor(sol.dat.data)
 
-torch.save(data, "burgers.pt")
+torch.save(data, "burgers_1000.pt")
 
