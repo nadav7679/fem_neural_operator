@@ -7,13 +7,22 @@ class BurgersSolver:
     """
     A class that solves burgers equation for a given initial condition and mesh.
     """
-    def __init__(self, n, length, nu, degree, t_end, mesh=None):
-        self.mesh = PeriodicIntervalMesh(n, length=length) if mesh is None else mesh
+    def __init__(self, mesh: PeriodicIntervalMesh, nu: float, degree: int, t_end: float):
+        """
+
+        Args:
+            mesh: Periodic mesh
+            nu: The constant \nu from Burgers
+            degree: Degree of Lagrange function space
+            t_end: Final time for simulation
+        """
+        self.mesh = mesh
+        self.t_end = t_end
+        nx = mesh.coordinates.dat.data[1] - mesh.coordinates.dat.data[0]
+        self.dt = 1./(10*nx)
+        self.nu = Constant(nu)
         self.x = SpatialCoordinate(self.mesh)[0]
         self.space = FunctionSpace(self.mesh, "Lagrange", degree)
-        self.t_end = t_end
-        self.dt = 1./(10*n)
-        self.nu = Constant(nu)
 
         self.u_n1 = Function(self.space, name="u^{n+1}")
         self.u_n = Function(self.space, name="u^{n}")
