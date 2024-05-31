@@ -20,8 +20,7 @@ class NeuralOperatorLayer(nn.Module):
         """
         super().__init__()
 
-        #: linear is the linear matrix multiplication that mixes up the channels (W operator), called also MLP.
-        #: Note that it includes the bias.
+        #: Linear matrix multiplication that mixes up the channels (W operator), called also MLP. It includes the bias.
         self.linear = nn.Linear(dim, dim)
         #: The matrix multiplication before the inner product (the T_m, assuming T_m=T forall m).
         self.preprojection_linear = nn.Linear(dim, dim, bias=False)
@@ -249,5 +248,7 @@ if __name__ == "__main__":
 
     coeff = torch.randn((M, N))
 
-    spectralblock = SpectralBlock(N, coeff)
+    projection_block = NeuralOperatorLayer(N, coeff)
     u = torch.randn((10, d, N))
+
+    print(projection_block(u).shape)
