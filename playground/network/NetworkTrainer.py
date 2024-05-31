@@ -1,13 +1,11 @@
 import torch
 from torch.utils.data import DataLoader
 
-from NonlocalNeuralOperator import NonlocalNeuralOperator
-
 
 class NeuralNetworkTrainer():
     def __init__(
             self,
-            net: NonlocalNeuralOperator,
+            net,
             trainset,
             testset,
             criterion,
