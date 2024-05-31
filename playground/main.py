@@ -18,7 +18,7 @@ class BurgersDataset(Dataset):
         return self.data[index, 0, ...], self.data[index, 1, ...]
 
 
-filename = "data/burgers__samples_100__nx_100"
+filename = "data/burgers__samples_1000__nx_100"
 
 samples = torch.load(f"{filename}.pt").unsqueeze(2).to(dtype=torch.float32)
 
@@ -49,10 +49,13 @@ network_trainer = NeuralNetworkTrainer(
     testset,
     loss,
     optimizer,
-    max_epoch=10
+    max_epoch=30
 )
 
 network_trainer.train_me()
+
+torch.save(net, "model.pt")
+
 
 
 

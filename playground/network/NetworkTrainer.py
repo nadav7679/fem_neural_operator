@@ -53,7 +53,6 @@ class NeuralNetworkTrainer():
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-        print(self.trainloader.dataset.data.shape)
         return self.criterion(
             self.net(self.trainloader.dataset.data[:, 0, ...]),
             self.trainloader.dataset.data[:, 1, ...]
