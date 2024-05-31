@@ -1,27 +1,13 @@
-import matplotlib.pyplot as plt
-
-from firedrake import *
-from firedrake.pyplot import plot
-
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
+import matplotlib.pyplot as plt
+
+from network import NeuralNetworkTrainer, NonlocalNeuralOperator
+from burgers.utils import fourier_coefficients
 
 
-from Network import Net, NeuralNetworkTrainer
-
-
-def plot_coefficients(coefs: torch.Tensor):
-    nx, length = 100, 1
-    mesh = PeriodicIntervalMesh(nx, length=length)
-    cg_space = FunctionSpace(mesh, "CG", degree=1)
-
-    f = Function(cg_space, val=coefs.detach())
-    plot(f)
-    plt.show()
-
-
-class BurgersTrainDataset(Dataset):
+class BurgersDataset(Dataset):
     def __init__(self, data):
         self.data = data
 
@@ -29,19 +15,44 @@ class BurgersTrainDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index, 0, :], self.data[index, 1, :]
+        return self.data[index, 0, ...], self.data[index, 1, ...]
 
 
-full_data = torch.load("burgers.pt")
-train_dataset = BurgersTrainDataset(full_data[:int(0.8*len(full_data))])  # 80% train data
-test_dataset = BurgersTrainDataset(full_data[int(0.8*len(full_data)):])   # 20% test data
+filename = "data/burgers__samples_100__nx_100"
 
-plot_coefficients(test_dataset[1][0])
-# net = NeuralNetworkTrainer(train_dataset,
-#                            test_dataset,
-#                            20,
-#                            3,
-#                            nn.CrossEntropyLoss(),
-#                            torch.optim.Adam,
-#                            max_epoch=5
-#                            )
+samples = torch.load(f"{filename}.pt").unsqueeze(2).to(dtype=torch.float32)
+
+try:
+    coeff = torch.load(f"{filename}__coefficients.pt").to(dtype=torch.float32)
+
+except FileNotFoundError:
+    max_modes = 8
+    coeff = fourier_coefficients(filename, max_modes).to(dtype=torch.float32)
+
+samples_len = samples.shape[0]
+trainset = BurgersDataset(samples[:int(0.8 * samples_len)])
+testset = BurgersDataset(samples[int(0.8 * samples_len):])
+
+
+dim = coeff.shape[1]
+d = 10
+depth = 3
+net = NonlocalNeuralOperator(dim, d, depth, coeff)
+
+mesh_size = 0.1
+l1loss = nn.L1Loss(reduction="sum")  # Note that this loss sums over the batch as well
+loss = lambda x, y: mesh_size * l1loss(x, y)
+optimizer = torch.optim.Adam
+network_trainer = NeuralNetworkTrainer(
+    net,
+    trainset,
+    testset,
+    loss,
+    optimizer,
+    max_epoch=10
+)
+
+network_trainer.train_me()
+
+
+

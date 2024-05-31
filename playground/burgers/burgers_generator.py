@@ -37,8 +37,8 @@ def gaussian_field(cg_space, dg_space, cell_area, rg, d=25., s=625.):
 if __name__ == "__main__":
     # Parameters
     SEED = 12345
-    samples = 100
-    degree, t_end = 1, 2
+    samples = 1000
+    degree, t_end = 1, 0.3
     nx, length = 100, 1
     d, s, nu = 25, 625, 5e-2
     cell_area = length/nx

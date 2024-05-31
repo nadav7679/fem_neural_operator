@@ -53,9 +53,10 @@ class NeuralNetworkTrainer():
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+        print(self.trainloader.dataset.data.shape)
         return self.criterion(
-            self.net(self.trainloader.dataset.data),
-            self.trainloader.dataset.targets
+            self.net(self.trainloader.dataset.data[:, 0, ...]),
+            self.trainloader.dataset.data[:, 1, ...]
         )
 
     def test_epoch(self):
@@ -66,8 +67,8 @@ class NeuralNetworkTrainer():
               tuple: Testing loss.
         """
         self.net.eval()
-        y = self.testloader.dataset.data
-        targets = self.testloader.dataset.targets
+        y = self.testloader.dataset.data[:, 0, ...]
+        targets = self.testloader.dataset.data[:, 1, ...]
 
         y_hat = self.net(y)
         tot_loss = self.criterion(y_hat, targets)
