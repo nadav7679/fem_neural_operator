@@ -4,90 +4,105 @@ import torch.nn.functional as functional
 from torch.utils.data import DataLoader, Dataset
 
 
-class SpectralConv1d(nn.Module):
+class NeuralOperatorLayer(nn.Module):
     def __init__(
             self,
-            in_channels,
-            out_channels,
-            n_layers,
-            n_modes,
-            max_modes=None,
-    ):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.n_modes = n_modes  # Total number of modes kept along each dimension
-        self.n_layers = n_layers
-        self.max_modes = n_modes if max_modes is None else max_modes
-
-
-class NonlocalOperatorNet(nn.Module):
-    def __init__(
-            self,
-            in_length,
-            lift_channels,
-            nclass,
-            width,
-            depth
+            dim: int,
+            coeff: torch.Tensor,
     ):
         """
-          A 1D nonlocal neural operator.
-
-          Args:
-              dim (tuple): Input dimensions (e.g., (28, 28) for MNIST).
-              nclass (int): Number of classes in the output.
-              width (int): Width of the hidden layers.
-              depth (int): Number of hidden layers.
+        A network module that performs the interior layers operation in the Nonlocal Neural Operator architecture.
+        This includes: Linear transformation with bias, preprojection linear transformation, projection to 'psi'
+        functions (multiplication by coefficient), and nonlinearity.
+        Args:
+            dim: Dimension of the FE space, i.e. N
+            coeff: An M x N matrix of projection inner products, Cmn = <psi_m, phi_n>. M is the number of psi functions.
         """
         super().__init__()
-        self.in_length = in_length
-        self.lift_channels = lift_channels
-        self.nclass = nclass
-        self.width = width
-        self.depth = depth
 
-        self.lifting = nn.Conv1d(in_length, lift_channels, 1)
+        #: linear is the linear matrix multiplication that mixes up the channels (W operator), called also MLP.
+        #: Note that it includes the bias.
+        self.linear = nn.Linear(dim, dim)
+        #: The matrix multiplication before the inner product (the T_m, assuming T_m=T forall m).
+        self.preprojection_linear = nn.Linear(dim, dim, bias=False)
+        #: The matrix containing the inner product of phi and psi.
+        self.coeff_squared = coeff.T @ coeff
 
-        self.linear_in = nn.Linear(self.input_length, width, device=device)
-        self.linear_hidden = nn.Linear(width, width, device=device)
-        self.relu = nn.ReLU()
-        self.linear_out = nn.Linear(width, nclass, device=device)
+    def forward(self, u):
+        wu = self.linear(u)
+        spectral_u = self.preprojection_linear(u) @ self.coeff_squared
 
-    def forward(self, x):
-        """
-          Forward pass of the neural network.
-
-          Args:
-              x (torch.Tensor): Input tensor. A list of coefficients.
-
-          Returns:
-              torch.Tensor: the output of the network for given input.
-        """
-
-        x = self.lifting(x)
-
-        processed_x = lifted_x
-        for _ in range(self.depth):
-            processed_x = self.relu(self.linear_hidden(processed_x))
-
-        return self.linear_out(processed_x)
+        return functional.gelu(wu + spectral_u)
 
 
-def test_net(net=None):
-    """
-      Test the Net class by creating an instance and making a forward pass with a sample.
+# class CoefficientNeuralOperator(nn.Module):
+#     def __init__(
+#             self,
+#             dim: int,
+#             channels: int,
+#             depth: int
+#     ):
+#         """
+#           A 1D nonlocal neural operator on finite dimensions (intended for FEM). As the function spaces are finite,
+#           the network's data is expansion coefficients functions in a given basis.
+#
+#           Args:
+#               nclass (int): Number of classes in the output.
+#               width (int): Width of the hidden layers.
+#               depth (int): Number of hidden layers.
+#
+#         Note: Currently the input is simply the `dim` coefficients of the function in the finite function-space basis.
+#         In general, the  lifting operator should get the function u(x)=x as well (I think). A possible change is to
+#         include this input as well: another `dim` coefficients that represent u(x) in the basis.
+#         """
+#         super().__init__()
+#         self.dim = dim
+#         self.channels = channels
+#         self.depth = depth
+#
+#         self.lifting = nn.Conv1d(1, channels, 1)
+#
+#         for l in depth:
+#
+#         self.linear_in = nn.Linear(self.input_length, width, device=device)
+#         self.linear_hidden = nn.Linear(width, width, device=device)
+#         self.relu = nn.ReLU()
+#         self.linear_out = nn.Linear(width, nclass, device=device)
+#
+#     def forward(self, x):
+#         """
+#           Forward pass of the neural network.
+#
+#           Args:
+#               x (torch.Tensor): Input tensor. A list of coefficients.
+#
+#           Returns:
+#               torch.Tensor: the output of the network for given input.
+#         """
+#
+#         x = self.lifting(x)
+#
+#         processed_x = lifted_x
+#         for _ in range(self.depth):
+#             processed_x = self.relu(self.linear_hidden(processed_x))
+#
+#         return self.linear_out(processed_x)
 
-      Args:
-          net (Net, optional): A pre-trained Net instance. If None, create a new instance.
-    """
 
-    mnist_net = Net((28, 28), 10, 16, 2) if net is None else net
-    sample_index = np.random.randint(10000)
-
-    x = train_set_mnist.data[sample_index, :, :]
-    x = torch.unsqueeze(x, 0)
-    print(mnist_net(x), train_set_mnist.targets[sample_index])
+# def test_net(net=None):
+#     """
+#       Test the Net class by creating an instance and making a forward pass with a sample.
+#
+#       Args:
+#           net (Net, optional): A pre-trained Net instance. If None, create a new instance.
+#     """
+#
+#     mnist_net = Net((28, 28), 10, 16, 2) if net is None else net
+#     sample_index = np.random.randint(10000)
+#
+#     x = train_set_mnist.data[sample_index, :, :]
+#     x = torch.unsqueeze(x, 0)
+#     print(mnist_net(x), train_set_mnist.targets[sample_index])
 
 
 # test_net()
@@ -225,3 +240,14 @@ class NeuralNetworkTrainer():
                       f"Test Loss: {test_loss:.04} | Test Error: {test_err / samples_len:.04}")
 
         return np.array([float(train_loss), float(test_loss)])
+
+
+if __name__ == "__main__":
+    N = 100
+    M = 17
+    d = 10
+
+    coeff = torch.randn((M, N))
+
+    spectralblock = SpectralBlock(N, coeff)
+    u = torch.randn((10, d, N))
