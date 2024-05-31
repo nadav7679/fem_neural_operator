@@ -18,8 +18,7 @@ class BurgersSolver:
         """
         self.mesh = mesh
         self.t_end = t_end
-        nx = mesh.coordinates.dat.data[1] - mesh.coordinates.dat.data[0]
-        self.dt = 1./(10*nx)
+        self.dt = 1./(10*mesh.cell_sizes.dat.data[0])  # Equispaced so nx=const
         self.nu = Constant(nu)
         self.x = SpatialCoordinate(self.mesh)[0]
         self.space = FunctionSpace(self.mesh, "Lagrange", degree)
