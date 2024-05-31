@@ -34,58 +34,59 @@ class NeuralOperatorLayer(nn.Module):
         return functional.gelu(wu + spectral_u)
 
 
-# class CoefficientNeuralOperator(nn.Module):
-#     def __init__(
-#             self,
-#             dim: int,
-#             channels: int,
-#             depth: int
-#     ):
-#         """
-#           A 1D nonlocal neural operator on finite dimensions (intended for FEM). As the function spaces are finite,
-#           the network's data is expansion coefficients functions in a given basis.
-#
-#           Args:
-#               nclass (int): Number of classes in the output.
-#               width (int): Width of the hidden layers.
-#               depth (int): Number of hidden layers.
-#
-#         Note: Currently the input is simply the `dim` coefficients of the function in the finite function-space basis.
-#         In general, the  lifting operator should get the function u(x)=x as well (I think). A possible change is to
-#         include this input as well: another `dim` coefficients that represent u(x) in the basis.
-#         """
-#         super().__init__()
-#         self.dim = dim
-#         self.channels = channels
-#         self.depth = depth
-#
-#         self.lifting = nn.Conv1d(1, channels, 1)
-#
-#         for l in depth:
-#
-#         self.linear_in = nn.Linear(self.input_length, width, device=device)
-#         self.linear_hidden = nn.Linear(width, width, device=device)
-#         self.relu = nn.ReLU()
-#         self.linear_out = nn.Linear(width, nclass, device=device)
-#
-#     def forward(self, x):
-#         """
-#           Forward pass of the neural network.
-#
-#           Args:
-#               x (torch.Tensor): Input tensor. A list of coefficients.
-#
-#           Returns:
-#               torch.Tensor: the output of the network for given input.
-#         """
-#
-#         x = self.lifting(x)
-#
-#         processed_x = lifted_x
-#         for _ in range(self.depth):
-#             processed_x = self.relu(self.linear_hidden(processed_x))
-#
-#         return self.linear_out(processed_x)
+class NonlocalNeuralOperator(nn.Module):
+    def __init__(
+            self,
+            dim: int,
+            channels: int,
+            depth: int,
+            coeff: torch.Tensor
+    ):
+        """
+          A 1D nonlocal neural operator on finite dimensions (intended for FEM). As the function spaces are finite,
+          the network's data is expansion coefficients functions in a given basis.
+
+          Args:
+              nclass (int): Number of classes in the output.
+              width (int): Width of the hidden layers.
+              depth (int): Number of hidden layers.
+
+        Note: Currently the input is simply the `dim` coefficients of the function in the finite function-space basis.
+        In general, the  lifting operator should get the function u(x)=x as well (I think). A possible change is to
+        include this input as well: another `dim` coefficients that represent u(x) in the basis.
+        """
+        super().__init__()
+        self.dim = dim
+        self.channels = channels
+        self.depth = depth
+
+        self.lifting = nn.Conv1d(1, channels, 1)
+
+        layers = []
+        for _ in range(depth):
+            layers.append(NeuralOperatorLayer(dim, coeff))
+
+        self.layers = nn.ModuleList(layers)
+
+        self.projection = nn.Conv1d(channels, 1, 1)
+
+    def forward(self, u):
+        """
+          Forward pass of the neural network.
+
+          Args:
+              x (torch.Tensor): Input tensor. A list of coefficients.
+
+          Returns:
+              torch.Tensor: the output of the network for given input.
+        """
+
+        u = self.lifting(u)
+
+        for i in range(self.depth):
+            u = self.layers[i](u)
+
+        return self.projection(u)
 
 
 # def test_net(net=None):
@@ -102,9 +103,8 @@ class NeuralOperatorLayer(nn.Module):
 #     x = train_set_mnist.data[sample_index, :, :]
 #     x = torch.unsqueeze(x, 0)
 #     print(mnist_net(x), train_set_mnist.targets[sample_index])
-
-
-# test_net()
+#
+#
 
 
 class NeuralNetworkTrainer():
@@ -245,10 +245,16 @@ if __name__ == "__main__":
     N = 100
     M = 17
     d = 10
+    batchsize = 10
 
     coeff = torch.randn((M, N))
 
-    projection_block = NeuralOperatorLayer(N, coeff)
-    u = torch.randn((10, d, N))
+    u = torch.randn((batchsize, N)).unsqueeze(1)  # Unsqueeze to add channel dimension
 
-    print(projection_block(u).shape)
+    # projection_block = NeuralOperatorLayer(N, coeff)
+    # print(projection_block(u).shape)
+
+    model = NonlocalNeuralOperator(N, d, 4, coeff)
+    u = model(u)
+    print(u, u.shape)
+
