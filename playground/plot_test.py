@@ -3,19 +3,20 @@ import firedrake as fd
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filename = "data/burgers__samples_1000__nx_100"
 
-    net = torch.load("model.pt")
-    data = torch.load(f"{filename}.pt")
+    net = torch.load("model.pt").to(device=device)
+    data = torch.load(f"{filename}.pt").to(device=device, dtype=torch.float32)
 
     with fd.CheckpointFile(f"{filename}__mesh.h5", "r") as file:
         mesh = file.load_mesh()
 
     function_space = fd.FunctionSpace(mesh, "CG", degree=1)
 
-    simulation_coeff = net(data[:, 0, None, :].to(dtype=torch.float32))
+    simulation_coeff = net(data[:, 0, None, :]).cpu().detach().numpy()
+    data = data.to(device="cpu").numpy()
 
     initial_functions = []
     solutions = []
@@ -23,8 +24,7 @@ if __name__ == "__main__":
     for i, arr in enumerate(data):
         initial_functions.append(fd.Function(function_space, val=arr[0]))
         solutions.append(fd.Function(function_space, val=arr[1]))
-        simulations.append(fd.Function(function_space, val=simulation_coeff[i, 0, :].detach().numpy()))
-
+        simulations.append(fd.Function(function_space, val=simulation_coeff[i, 0, :]))
 
     # Number of points for plotting
     num_plot_points = 1000
@@ -49,4 +49,3 @@ if __name__ == "__main__":
 
     # Show the plot
     plt.show()
-

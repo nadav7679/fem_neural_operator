@@ -10,6 +10,7 @@ class NeuralNetworkTrainer():
             testset,
             criterion,
             optimizer,
+            scheduler,
             batch_size=32,
             lr=0.001,
             max_epoch=1,
@@ -20,6 +21,7 @@ class NeuralNetworkTrainer():
           Args:
               criterion (torch loss function): Loss function for training. Assume the loss uses reduction="sum" !
               optimizer (torch.optim.Optimizer): Optimization algorithm for training.
+              scheduler: torch learning rate scheduler
               batch_size (int, optional): Batch size for training and testing. Default is 32. Hyperparamater!
               lr (float, optional): Learning rate for the optimizer. Default is 0.001. Hyperparamater!
               max_epoch (int, optional): Maximum number of training epochs. Default is 1. Hyperparamater!
@@ -27,7 +29,8 @@ class NeuralNetworkTrainer():
 
         self.net = net
         self.criterion = criterion
-        self.optimizer = optimizer(net.parameters(), lr=lr)
+        self.optimizer = optimizer
+        self.scheduler = scheduler
         self.batch_size = batch_size
         self.lr = lr
         self.max_epoch = max_epoch
@@ -84,7 +87,10 @@ class NeuralNetworkTrainer():
             train_loss = self.train_epoch()
             test_loss = self.test_epoch()
 
+            self.scheduler.step()
+
             if logs:
-                print(f"Epoch: {epoch} | Train Loss: {train_loss:.04} | Test Loss: {test_loss:.04}")
+                print(f"Epoch: {epoch} | Train Loss: {train_loss:.04} | Test Loss: {test_loss:.04} "
+                      f"| lr: {self.scheduler.get_lr()[0]}")
 
         return float(train_loss)

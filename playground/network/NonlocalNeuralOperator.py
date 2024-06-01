@@ -6,6 +6,7 @@ import torch.nn.functional as functional
 class NeuralOperatorLayer(nn.Module):
     def __init__(
             self,
+            device,
             dim: int,
             coeff: torch.Tensor,
     ):
@@ -14,15 +15,16 @@ class NeuralOperatorLayer(nn.Module):
         This includes: Linear transformation with bias, preprojection linear transformation, projection to 'psi'
         functions (multiplication by coefficient), and nonlinearity.
         Args:
+            device: Torch device to use (gpu or cpu)
             dim: Dimension of the FE space, i.e. N
             coeff: An M x N matrix of projection inner products, Cmn = <psi_m, phi_n>. M is the number of psi functions.
         """
         super().__init__()
 
         #: Linear matrix multiplication that mixes up the channels (W operator), called also MLP. It includes the bias.
-        self.linear = nn.Linear(dim, dim)
+        self.linear = nn.Linear(dim, dim, device=device)
         #: The matrix multiplication before the inner product (the T_m, assuming T_m=T forall m).
-        self.preprojection_linear = nn.Linear(dim, dim, bias=False)
+        self.preprojection_linear = nn.Linear(dim, dim, bias=False, device=device)
         #: The matrix containing the inner product of phi and psi.
         self.coeff_squared = coeff.T @ coeff
 
@@ -36,6 +38,7 @@ class NeuralOperatorLayer(nn.Module):
 class NonlocalNeuralOperator(nn.Module):
     def __init__(
             self,
+            device,
             dim: int,
             channels: int,
             depth: int,
@@ -46,6 +49,7 @@ class NonlocalNeuralOperator(nn.Module):
         the network's data is expansion coefficients functions in a given basis.
 
         Args:
+            device: Torch device to use
             dim: Dimension of FE space, i.e. N
             channels: Number of channels for fan-out, i.e. d
             depth: Number of inner layers
@@ -60,15 +64,15 @@ class NonlocalNeuralOperator(nn.Module):
         self.channels = channels
         self.depth = depth
 
-        self.lifting = nn.Conv1d(1, channels, 1)
+        self.lifting = nn.Conv1d(1, channels, 1, device=device)
 
         layers = []
         for _ in range(depth):
-            layers.append(NeuralOperatorLayer(dim, coeff))
+            layers.append(NeuralOperatorLayer(device, dim, coeff))
 
         self.layers = nn.ModuleList(layers)
 
-        self.projection = nn.Conv1d(channels, 1, 1)
+        self.projection = nn.Conv1d(channels, 1, 1, device=device)
 
     def forward(self, u):
         u = self.lifting(u)
