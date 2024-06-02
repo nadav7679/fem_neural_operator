@@ -66,7 +66,7 @@ class NeuralNetworkTrainer():
           Perform one testing epoch.
 
           Returns:
-              tuple: Testing loss.
+              torch.Tensor: Testing loss.
         """
         self.net.eval()
         y = self.testloader.dataset.data[:, 0, ...]
@@ -81,16 +81,20 @@ class NeuralNetworkTrainer():
         """
           Train the neural network for max_epoch and print training and testing statistics.
         """
-
+        losses = torch.zeros((2, self.max_epoch), dtype=torch.float32, device="cpu")
+        # print(losses.device)
         for i in range(self.max_epoch):
             epoch = i + 1
-            train_loss = self.train_epoch()
-            test_loss = self.test_epoch()
+            train_loss = self.train_epoch().detach().cpu()
+            test_loss = self.test_epoch().detach().cpu()
 
-            self.scheduler.step()
 
             if logs:
                 print(f"Epoch: {epoch} | Train Loss: {train_loss:.04} | Test Loss: {test_loss:.04} "
-                      f"| lr: {self.scheduler.get_lr()[0]}")
+                      f"| lr: {self.scheduler.get_last_lr()[0]}")
 
-        return float(train_loss)
+            losses[0, i], losses[1, i] = train_loss, test_loss
+            self.scheduler.step()
+
+
+        return losses

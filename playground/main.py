@@ -21,6 +21,7 @@ class BurgersDataset(Dataset):
 filename = "data/burgers__samples_1000__nx_100"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 samples = torch.load(f"{filename}.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
 
 try:
@@ -41,7 +42,7 @@ net = NonlocalNeuralOperator(device, dim, d, depth, coeff)
 
 mesh_size = 0.1
 lr = 0.01
-l1loss = nn.L1Loss(reduction="sum")  # Note that this loss sums over the batch as well
+l1loss = nn.L1Loss(reduction="mean")  # Note that this loss sums over the batch as well
 loss = lambda x, y: mesh_size * l1loss(x, y)
 optimizer = torch.optim.Adam(net.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.1)
@@ -55,6 +56,15 @@ network_trainer = NeuralNetworkTrainer(
     max_epoch=200
 )
 
-network_trainer.train_me()
+losses = network_trainer.train_me()
+torch.save(losses, "losses_200.pt")
+
+plt.plot(losses[0], label="Train loss")
+plt.plot(losses[1], label="Test loss")
+plt.title("Burgers equation L1 avg loss")
+plt.xlabel("Epoch")
+plt.grid()
+plt.legend()
+plt.show()
 
 torch.save(net, "model.pt")
