@@ -10,6 +10,9 @@ if __name__ == "__main__":
     net = torch.load("model.pt").to(device=device)
     data = torch.load(f"{filename}.pt").to(device=device, dtype=torch.float32)
 
+    param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
+    print(f"Number of parameters: {param_num}")
+
     with fd.CheckpointFile(f"{filename}__mesh.h5", "r") as file:
         mesh = file.load_mesh()
 
