@@ -59,10 +59,10 @@ class BurgersSolver:
 if __name__ == "__main__":
     from firedrake.pyplot import plot
     import matplotlib.pyplot as plt
-    
+
+    mesh = PeriodicIntervalMesh(100, 1)
     params = {
-        "n": 100,
-        "length": 2,
+        "mesh": mesh,
         "nu": 1e-2,
         "degree": 2,
         "t_end": 1
