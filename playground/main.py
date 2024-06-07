@@ -20,15 +20,14 @@ class BurgersDataset(Dataset):
 
 filename = "data/burgers__samples_1000__nx_100"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+max_modes = 32
 
 samples = torch.load(f"{filename}.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
 
 try:
-    coeff = torch.load(f"{filename}__coefficients.pt").to(device=device, dtype=torch.float32)
+    coeff = torch.load(f"{filename}__coefficients_{max_modes}.pt").to(device=device, dtype=torch.float32)
 
 except FileNotFoundError:
-    max_modes = 8
     coeff = fourier_coefficients(filename, max_modes).to(device=device, dtype=torch.float32)
 
 samples_len = samples.shape[0]
@@ -36,12 +35,16 @@ trainset = BurgersDataset(samples[:int(0.8 * samples_len)])
 testset = BurgersDataset(samples[int(0.8 * samples_len):])
 
 dim = coeff.shape[1]
-d = 10
-depth = 3
-net = NonlocalNeuralOperator(device, dim, d, depth, coeff)
+d = 50
+depth = 4
+net = NonlocalNeuralOperator(device, dim, d, depth, coeff).to(dtype=torch.float32)
+param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
+print(f"Number of parameters: {param_num}")
+print(f"Used device: {device}")
+
 
 mesh_size = 0.1
-lr = 0.01
+lr = 0.05
 l1loss = nn.L1Loss(reduction="mean")  # Note that this loss sums over the batch as well
 loss = lambda x, y: mesh_size * l1loss(x, y)
 optimizer = torch.optim.Adam(net.parameters(), lr=lr)
@@ -63,6 +66,7 @@ plt.plot(losses[0], label="Train loss")
 plt.plot(losses[1], label="Test loss")
 plt.title("Burgers equation L1 avg loss")
 plt.xlabel("Epoch")
+plt.yscale("log")
 plt.grid()
 plt.legend()
 plt.show()

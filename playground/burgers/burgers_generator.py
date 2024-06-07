@@ -38,9 +38,9 @@ if __name__ == "__main__":
     # Parameters
     SEED = 12345
     samples = 1000
-    degree, t_end = 1, 0.3
-    nx, length = 100, 1
-    d, s, nu = 25, 625, 5e-2
+    degree, t_end = 1, 1
+    nx, length = 256, 1
+    d, s, nu = 25, 625, 0.1
     cell_area = length/nx
     filename = f"../data/burgers__samples_{samples}__nx_{nx}"
 
