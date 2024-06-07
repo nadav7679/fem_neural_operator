@@ -37,12 +37,13 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
 
     # Plot each function
-    for func in [solutions[-1], simulations[-1]]:
+    index = 10
+    for func, label in zip([solutions[index], simulations[index], initial_functions[index]], ["Ground truth", "Result", "initial"]):
         # Evaluate the function at the plot points
         plot_values = np.array([func.at(x) for x in plot_points])
 
         # Plot the function
-        ax.plot(plot_points, plot_values)
+        ax.plot(plot_points, plot_values, label=label)
 
     # Set plot labels and title
     ax.set_xlabel('x')
