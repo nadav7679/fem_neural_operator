@@ -1,2 +1,2 @@
 from .NetworkTrainer import NeuralNetworkTrainer
-from .NonlocalNeuralOperator import NonlocalNeuralOperator
+from .NonlocalNeuralOperator import NonlocalNeuralOperator, NeuralOperatorLayer
