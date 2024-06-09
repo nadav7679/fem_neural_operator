@@ -8,19 +8,23 @@ from burgers.utils import fourier_coefficients
 
 
 class BurgersDataset(Dataset):
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, data, grid):
+        self.targets = data[:, 1, ...]
+
+        grids = grid.repeat(data.shape[0], 1, 1)
+        self.inputs = torch.concat((data[:, 0, ...], grids), 1)  # Adding grid/mesh channel to input
 
     def __len__(self):
-        return len(self.data)
+        return len(self.targets)
 
     def __getitem__(self, index):
-        return self.data[index, 0, ...], self.data[index, 1, ...]
+        return self.inputs[index], self.targets[index]
 
 
-filename = "data/burgers__samples_1000__nx_100"
+nx = 50
+filename = f"data/burgers__samples_1000__nx_{nx}"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-max_modes = 32
+max_modes = 10
 
 samples = torch.load(f"{filename}.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
 
@@ -30,13 +34,15 @@ try:
 except FileNotFoundError:
     coeff = fourier_coefficients(filename, max_modes).to(device=device, dtype=torch.float32)
 
+grid = torch.linspace(0, 1, nx, device=device)
 samples_len = samples.shape[0]
-trainset = BurgersDataset(samples[:int(0.8 * samples_len)])
-testset = BurgersDataset(samples[int(0.8 * samples_len):])
+trainset = BurgersDataset(samples[:int(0.8 * samples_len)], grid)
+testset = BurgersDataset(samples[int(0.8 * samples_len):], grid)
 
 dim = coeff.shape[1]
-d = 50
-depth = 4
+print(dim)
+d = 10
+depth = 3
 net = NonlocalNeuralOperator(device, dim, d, depth, coeff).to(dtype=torch.float32)
 param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
 print(f"Number of parameters: {param_num}")
@@ -44,7 +50,7 @@ print(f"Used device: {device}")
 
 
 mesh_size = 0.1
-lr = 0.05
+lr = 0.01
 l1loss = nn.L1Loss(reduction="mean")  # Note that this loss sums over the batch as well
 loss = lambda x, y: mesh_size * l1loss(x, y)
 optimizer = torch.optim.Adam(net.parameters(), lr=lr)
@@ -71,4 +77,4 @@ plt.grid()
 plt.legend()
 plt.show()
 
-torch.save(net, "model.pt")
+torch.save(net, "model_trained_on_nx_50.pt")
