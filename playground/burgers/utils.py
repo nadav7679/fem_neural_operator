@@ -4,20 +4,20 @@ import firedrake as fd
 import torch
 
 
-def fourier_coefficients(filename, max_modes):
+def fourier_coefficients(filename, max_modes, nx, d):
     """
     Calculate the coefficient matrix C_{mn} = <psi_m, phi_n> of the FE basis {phi}^N and trigonometric functions
     {psi}^(2*max_modes+1), up do mode max_modes. The function also saves the coefficient matrix.
     Args:
         mesh: The mesh to calculate the inner product on
         max_modes: Maximum fourier modes
+        nx: Number of points on grid (N)
 
     Returns:
         c: An MxN matrix (torch tensor) of coefficients, where M=2*max_modes+1.
     """
     with fd.CheckpointFile(f"{filename}__mesh.h5", "r") as file:
         mesh = file.load_mesh()
-
 
     dim = len(mesh.cell_sizes.dat.data)
     function_space = fd.FunctionSpace(mesh, "CG", degree=1)
@@ -39,7 +39,7 @@ def fourier_coefficients(filename, max_modes):
         else:
             assert abs(torch.sum(c[i])) < 10E-12
 
-    torch.save(c, f"{filename}__coefficients_{max_modes}.pt")
+    torch.save(c, f"models/nx_{nx}__d_{d}__max_modes_{max_modes}__coeff.pt")
 
     return c
 
@@ -59,6 +59,3 @@ if __name__ == "__main__":
     for arr in data:
         initial_functions.append(fd.Function(function_space, val=arr[0]))
         solutions.append(fd.Function(function_space, val=arr[1]))
-
-
-
