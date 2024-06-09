@@ -39,7 +39,7 @@ def fourier_coefficients(filename, max_modes):
         else:
             assert abs(torch.sum(c[i])) < 10E-12
 
-    torch.save(c, f"{filename}__coefficients.pt")
+    torch.save(c, f"{filename}__coefficients_{max_modes}.pt")
 
     return c
 

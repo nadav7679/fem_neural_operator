@@ -57,8 +57,8 @@ class NeuralNetworkTrainer():
             self.optimizer.zero_grad()
 
         return self.criterion(
-            self.net(self.trainloader.dataset.data[:, 0, ...]),
-            self.trainloader.dataset.data[:, 1, ...]
+            self.net(self.trainloader.dataset.inputs),
+            self.trainloader.dataset.targets
         )
 
     def test_epoch(self):
@@ -69,8 +69,8 @@ class NeuralNetworkTrainer():
               torch.Tensor: Testing loss.
         """
         self.net.eval()
-        y = self.testloader.dataset.data[:, 0, ...]
-        targets = self.testloader.dataset.data[:, 1, ...]
+        y = self.testloader.dataset.inputs
+        targets = self.testloader.dataset.targets
 
         y_hat = self.net(y)
         tot_loss = self.criterion(y_hat, targets)

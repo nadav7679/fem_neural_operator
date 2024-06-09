@@ -8,6 +8,7 @@ class NeuralOperatorLayer(nn.Module):
             self,
             device,
             dim: int,
+            channels: int,
             coeff: torch.Tensor,
     ):
         """
@@ -22,9 +23,9 @@ class NeuralOperatorLayer(nn.Module):
         super().__init__()
 
         #: Linear matrix multiplication that mixes up the channels (W operator), called also MLP. It includes the bias.
-        self.linear = nn.Linear(dim, dim, device=device)
+        self.linear = nn.Conv1d(channels, channels, kernel_size=1, device=device)
         #: The matrix multiplication before the inner product (the T_m, assuming T_m=T forall m).
-        self.preprojection_linear = nn.Linear(dim, dim, bias=False, device=device)
+        self.preprojection_linear = nn.Conv1d(channels, channels, 1, bias=False, device=device)
         #: The matrix containing the inner product of phi and psi.
         self.coeff_squared = coeff.T @ coeff
 
@@ -64,11 +65,11 @@ class NonlocalNeuralOperator(nn.Module):
         self.channels = channels
         self.depth = depth
 
-        self.lifting = nn.Conv1d(1, channels, 1, device=device)
+        self.lifting = nn.Conv1d(2, channels, 1, device=device)
 
         layers = []
         for _ in range(depth):
-            layers.append(NeuralOperatorLayer(device, dim, coeff))
+            layers.append(NeuralOperatorLayer(device, dim, channels, coeff))
 
         self.layers = nn.ModuleList(layers)
 
