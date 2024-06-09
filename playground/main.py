@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from network import NeuralNetworkTrainer, NonlocalNeuralOperator
 from burgers import BurgersDataset, fourier_coefficients
 
-nx = 512
+nx = 100
 h = 1 / nx
 d = 10
 max_modes = 10
@@ -53,7 +53,7 @@ losses = network_trainer.train_me()
 
 plt.plot(losses[0], label="Train loss")
 plt.plot(losses[1], label="Test loss")
-plt.title("Burgers equation L1 avg loss")
+plt.title(f"L1 average loss for Burgers with nx={nx}")
 plt.xlabel("Epoch")
 plt.yscale("log")
 plt.grid()
