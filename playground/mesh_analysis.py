@@ -106,4 +106,4 @@ if __name__ == "__main__":
     losses_fd = average_firedrake_loss(models, datasets, nx_arr, "L2")
 
     for model, nx, loss_fd, loss_coeff in zip(models, nx_arr, losses_fd, losses_coeff):
-        print(f"nx: {nx:03} | Average Firedrake loss: {loss_fd:.04} | Average coeff loss: {loss_coeff:.04}")
+        print(f"nx: {nx:03} | Average Firedrake loss: {loss_fd:.04} | Average coeff loss: {loss_coeff:.04} | Diff {loss_coeff - loss_fd:.04}")
