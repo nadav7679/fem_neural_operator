@@ -7,7 +7,7 @@ class NeuralOperatorLayer(nn.Module):
     def __init__(
             self,
             device,
-            dim: int,
+            modes: int,
             channels: int,
             coeff: torch.Tensor,
     ):
@@ -22,24 +22,28 @@ class NeuralOperatorLayer(nn.Module):
         """
         super().__init__()
 
+        self.coeff = coeff
+        self.coeff_T = coeff.T
+        self.modes = modes
+
         #: Linear matrix multiplication that mixes up the channels (W operator), called also MLP. It includes the bias.
         self.linear = nn.Conv1d(channels, channels, kernel_size=1, device=device)
-        #: The matrix multiplication before the inner product (the T_m, assuming T_m=T forall m).
-        self.preprojection_linear = nn.Conv1d(channels, channels, 1, bias=False, device=device)
-        #: The matrix containing the inner product of phi and psi.
-        self.coeff_squared = coeff.T @ coeff
+
+        self.weights = nn.Parameter(torch.rand(modes, channels, channels, requires_grad=True, device=device))  # M x D x D parameters
 
     def forward(self, u):
         wu = self.linear(u)
-        spectral_u = self.preprojection_linear(u) @ self.coeff_squared
+        # print(u.shape, self.weights.shape, (u @ self.coeff_T).shape, self.coeff.shape)
+        s = torch.einsum("mji, bim, mn -> bjn", self.weights, u @ self.coeff_T, self.coeff)
 
-        return functional.gelu(wu + spectral_u)
+        return functional.gelu(wu + s)
 
 
 class NonlocalNeuralOperator(nn.Module):
     def __init__(
             self,
             device,
+            modes: int,
             dim: int,
             channels: int,
             depth: int,
@@ -69,7 +73,7 @@ class NonlocalNeuralOperator(nn.Module):
 
         layers = []
         for _ in range(depth):
-            layers.append(NeuralOperatorLayer(device, dim, channels, coeff))
+            layers.append(NeuralOperatorLayer(device, modes, channels, coeff))
 
         self.layers = nn.ModuleList(layers)
 
@@ -86,17 +90,18 @@ class NonlocalNeuralOperator(nn.Module):
 
 if __name__ == "__main__":
     N = 100
-    M = 17
+    M = 8
     d = 10
-    batchsize = 10
+    batchsize = 15
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    coeff = torch.randn((M, N))
+    coeff = torch.randn((M, N), device=device)
 
-    u = torch.randn((batchsize, N)).unsqueeze(1)  # Unsqueeze to add channel dimension
+    u = torch.randn((batchsize, 2, N), device=device)  # Unsqueeze to add channel dimension
 
     # projection_block = NeuralOperatorLayer(N, coeff)
     # print(projection_block(u).shape)
 
-    model = NonlocalNeuralOperator(N, d, 4, coeff)
+    model = NonlocalNeuralOperator(device, M, N, d, 3, coeff)
     u = model(u)
     print(u, u.shape)
