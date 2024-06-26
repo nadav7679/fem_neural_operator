@@ -39,7 +39,7 @@ class ProjectionCoefficient:
         self.device = device
 
         self.N = int(len(mesh.cell_sizes.dat.data))
-        self.filename = f"data/projection_coefficients/{projection_type}/N_{self.N}__M_{self.M}.pt"
+        self.filename = f"data/projection_coefficients/{projection_type}/N{self.N}_M{self.M}.pt"
         self.coeff = torch.zeros((M, self.N))
 
     def _calculate_fourier(self):
@@ -115,7 +115,7 @@ class ProjectionCoefficient:
             ProjectionCoefficient: An instance of ProjectionCoefficient with loaded coefficients.
         """
         projection_type = filename.split("/")[2]
-        M = int(filename[filename.find("N") + 2: filename.find("__M")])
+        M = int(filename[filename.find("M") + 1:filename.find(".pt")])
         N = int(len(mesh.cell_sizes.dat.data))
         proj = ProjectionCoefficient(mesh,
                                      projection_type,
