@@ -7,13 +7,13 @@ from burgers import BurgersDataset
 
 
 if __name__ == "__main__":
-    nx = 100
-    max_modes = 10
+    nx = 512
+    max_modes = 8
     d = 10
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filename = f"data/burgers__samples_1000__nx_{nx}"
 
-    net = torch.load(f"models/nx_{nx}__d_{d}__max_modes_{max_modes}.pt").to(device=device)
+    net = torch.load(f"models_L2/nx_{nx}__d_{d}__max_modes_{max_modes}.pt").to(device=device)
     param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
     print(f"Number of parameters: {param_num}")
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
 
     # Plot each function
-    index = 40
+    index = 25
     for func, label in zip([solutions[index], predictions[index], initial_functions[index]], ["Firedrake solution", "Network solution", "Initial condition"]):
         # Evaluate the function at the plot points
         plot_values = np.array([func.at(x) for x in plot_points])
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     # Set plot labels and title
     ax.set_xlabel("$x$")
-    ax.set_title(f"Burgers Firedrake and Net solutions, $N_x={nx}$")
+    ax.set_title(f"Burgers solutions - Firedrake and Network, $N_x={nx}, \, D={d}$")
     ax.legend()
 
     # Show the plot
