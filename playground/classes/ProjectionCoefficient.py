@@ -55,9 +55,7 @@ class ProjectionCoefficient:
         x = fd.SpatialCoordinate(self.mesh)[0]
         v = fd.TestFunction(function_space)
 
-        self.coeff = torch.zeros((2 * self.M + 1, self.N),  # Zero mode and cos, sin for each mode
-                                 dtype=torch.float64,
-                                 device=self.device)
+        self.coeff = torch.zeros((2 * self.M + 1, self.N), dtype=torch.float32)  # Zero mode and cos, sin for each mode
         for i in range(self.M + 1):
             if i == 0:
                 self.coeff[i] += fd.assemble(v * fd.dx).dat.data
@@ -79,9 +77,9 @@ class ProjectionCoefficient:
                 assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
 
             else:
-                assert abs(torch.sum(self.coeff[i])) < 10E-12
+                assert abs(torch.sum(self.coeff[i])) < 10E-9
 
-    def calculate(self):
+    def calculate(self, save=True):
         """
         Calculate the projection coefficients based on the specified projection_type. Note that the resulting matrix's
         size for fourier is 2*M+1.
@@ -95,10 +93,13 @@ class ProjectionCoefficient:
         if self.projection_type == "fourier":
             self._calculate_fourier()
             self._test_fourier()
-            torch.save(self.coeff, self.filename)
+            self.coeff = self.coeff.to(device=self.device)
 
         else:
             raise ValueError("Only 'fourier' projection_type is supported")
+
+        if save:
+            torch.save(self.coeff, self.filename)
 
     @staticmethod
     def load(filename: str, mesh: fd.Mesh, device='cpu'):
