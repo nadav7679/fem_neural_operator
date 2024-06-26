@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from burgers import BurgersDataset, fourier_coefficients
 from network import NeuralNetworkTrainer, NonlocalNeuralOperator
 
-nx = 256
+nx = 64
 h = 1 / nx
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -25,19 +25,20 @@ my_loss = nn.MSELoss(reduction="sum")
 loss = lambda x, y: h / len(x) * my_loss(x, y)  # Sum of all differences, times step size, divide by batch size
 
 def main():
-    d = 20
-    modes = [2 ** i for i in range(7)]
+    C = 64
+    modes = [i for i in range(2, 34, 4)]
 
     test_loss = []
     for m in modes:
+        d = round(C/m ** 0.5)
         coeff = fourier_coefficients(filename, m, nx, d).to(device=device, dtype=torch.float32)
         dim = coeff.shape[1]
 
-        net = NonlocalNeuralOperator(device, dim, d, depth, coeff).to(dtype=torch.float32)
+        net = NonlocalNeuralOperator(device, 2*m + 1, dim, d, depth, coeff).to(dtype=torch.float32)
         param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
 
         optimizer = torch.optim.Adam(net.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
         network_trainer = NeuralNetworkTrainer(
             net,
             trainset,
@@ -45,7 +46,7 @@ def main():
             loss,
             optimizer,
             scheduler,
-            max_epoch=200
+            max_epoch=300
         )
 
         print(f"Training m={m}, d={d} with param={param_num}")
