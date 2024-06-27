@@ -55,7 +55,7 @@ class NeuralOperatorModel:
         projection = ProjectionCoefficient.load(
             f"data/projection_coefficients"
             f"/{config['projection_type']}/N{config['N']}_M{config['M']}.pt",
-            mesh)
+            mesh, device)
         network = NonlocalNeuralOperator(config["M"], config["D"], config["depth"], projection, device)
         network.load_state_dict(state_dict)
 
