@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as functional
 import firedrake as fd
 
-from ProjectionCoefficient import ProjectionCoefficient
+from .ProjectionCoefficient import ProjectionCoefficient
 
 
 class NeuralOperatorLayer(nn.Module):

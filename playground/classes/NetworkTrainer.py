@@ -1,14 +1,16 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
+
+from .NeuralOperatorModel import NeuralOperatorModel
 
 
 class NeuralNetworkTrainer():
     def __init__(
             self,
-            net,
+            model: NeuralOperatorModel,
             trainset,
             testset,
-            criterion,
             optimizer,
             scheduler,
             batch_size=32,
@@ -19,7 +21,6 @@ class NeuralNetworkTrainer():
           A high-level class for creating, training, and evaluating neural network.
 
           Args:
-              criterion (torch loss function): Loss function for training. Assume the loss uses reduction="sum" !
               optimizer (torch.optim.Optimizer): Optimization algorithm for training.
               scheduler: torch learning rate scheduler
               batch_size (int, optional): Batch size for training and testing. Default is 32. Hyperparamater!
@@ -27,8 +28,7 @@ class NeuralNetworkTrainer():
               max_epoch (int, optional): Maximum number of training epochs. Default is 1. Hyperparamater!
         """
 
-        self.net = net
-        self.criterion = criterion
+        self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.batch_size = batch_size
@@ -38,6 +38,14 @@ class NeuralNetworkTrainer():
         self.trainloader = DataLoader(trainset, batch_size, shuffle=True)
         self.testloader = DataLoader(testset, batch_size, shuffle=False)
 
+        if model.config["loss_type"] == "MSE":
+            loss = nn.MSELoss(reduction="sum")
+        elif model.config["loss_type"] == "L1":
+            loss = nn.L1Loss(reduction="sum")
+
+        # Sum all differences, multiply by h = 1/N and divide by batch size
+        self.criterion = lambda x, y: loss(x, y) / (model.config["N"] * len(x))
+
     def train_epoch(self):
         """
           Perform one training epoch.
@@ -46,18 +54,19 @@ class NeuralNetworkTrainer():
               torch.Tensor: Training loss for the epoch.
         """
 
-        self.net.train()
+        self.model.network.train()
 
         for X, y in self.trainloader:
-            y_hat = self.net(X)
+            y_hat = self.model.network(X)
             local_loss = self.criterion(y_hat, y)
 
             local_loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+        self.model.config["epoch"] += 1
         return self.criterion(
-            self.net(self.trainloader.dataset.inputs),
+            self.model.network(self.trainloader.dataset.inputs),
             self.trainloader.dataset.targets
         )
 
@@ -68,16 +77,16 @@ class NeuralNetworkTrainer():
           Returns:
               torch.Tensor: Testing loss.
         """
-        self.net.eval()
+        self.model.network.eval()
         y = self.testloader.dataset.inputs
         targets = self.testloader.dataset.targets
 
-        y_hat = self.net(y)
+        y_hat = self.model.network(y)
         tot_loss = self.criterion(y_hat, targets)
 
         return tot_loss
 
-    def train_me(self, logs=True):
+    def train_me(self, logs=True, save=True):
         """
           Train the neural network for max_epoch and print training and testing statistics.
         """
@@ -88,13 +97,11 @@ class NeuralNetworkTrainer():
             train_loss = self.train_epoch().detach().cpu()
             test_loss = self.test_epoch().detach().cpu()
 
-
             if logs:
                 print(f"Epoch: {epoch} | Train Loss: {train_loss:.04} | Test Loss: {test_loss:.04} "
                       f"| lr: {self.scheduler.get_last_lr()[0]}")
 
             losses[0, i], losses[1, i] = train_loss, test_loss
             self.scheduler.step()
-
-
+        self.model.save()
         return losses

@@ -9,29 +9,42 @@ class NeuralOperatorModel:
     def __init__(
             self,
             network: NonlocalNeuralOperator,
-            config: dict,
-            save: bool = True
+            epoch=0,
+            loss_type="MSE",
+            train_samples=1000,
+            save: bool = False
     ):
         """
         Class to store pretrained NonLocalNeuralOperator networks and their metadata, used for inference.
         """
         self.network = network
-        self.config = config
+        self.config = {
+            "M": network.M,
+            "D": network.D,
+            "depth": network.depth,
+            "N": network.projection.N,
+            "projection_type": network.projection.projection_type,
+            "epoch": epoch,
+            "loss_type": loss_type,
+            "train_samples": train_samples
+        }
 
-        self.config["N"] = network.projection.N
-        self.config["D"] = network.D
-        self.config["M"] = network.M
-        self.config["depth"] = network.depth
+        self.filename = f"data/models/{network.projection.projection_type}/N_{network.projection.N}" \
+                        f"/{loss_type}/D{network.D}_M{network.M}" \
+                        f"_samples{train_samples}_epoch{epoch}.pt"
 
         if save:
-            self.filename = f"data/models/{network.projection.projection_type}/N_{network.projection.N}" \
-                            f"/{config['loss_type']}/D{network.D}_M{network.M}" \
-                            f"_samples{config['train_samples']}_epoch{config['epoch']}.pt"
+            self.save()
 
-            torch.save({
-                "state_dict": network.state_dict(),
-                "config": config
-            }, self.filename)
+    def save(self):
+        self.filename = f"data/models/{self.network.projection.projection_type}/N{self.network.projection.N}" \
+                        f"/{self.config['loss_type']}/D{self.network.D}_M{self.network.M}" \
+                        f"_samples{self.config['train_samples']}_epoch{self.config['epoch']}.pt"
+
+        torch.save({
+            "state_dict": self.network.state_dict(),
+            "config": self.config
+        }, self.filename)
 
     @staticmethod
     def load(filename, device):
@@ -40,18 +53,16 @@ class NeuralOperatorModel:
         mesh = fd.PeriodicIntervalMesh(config["N"], 1)
 
         projection = ProjectionCoefficient.load(
-            f"../data/projection_coefficients"
+            f"data/projection_coefficients"
             f"/{config['projection_type']}/N{config['N']}_M{config['M']}.pt",
             mesh)
         network = NonlocalNeuralOperator(config["M"], config["D"], config["depth"], projection, device)
         network.load_state_dict(state_dict)
 
-        model = NeuralOperatorModel(network, config, save=False)
+        model = NeuralOperatorModel(network, config["epoch"], config["loss_type"], config["train_samples"], save=False)
         model.filename = filename
 
         return model
-
-        # network = NonlocalNeuralOperator()
 
 
 if __name__ == "__main__":
@@ -63,18 +74,7 @@ if __name__ == "__main__":
     projection.calculate()
     network = NonlocalNeuralOperator(M, D, depth, projection, device)
 
-    config = {
-        "N": N,
-        "M": M,
-        "D": D,
-        "depth": depth,
-        "projection_type": "fourier",
-        "epoch": 0,
-        "loss_type": "MSE",
-        "train_samples": 5000
-    }
-
-    model1 = NeuralOperatorModel(network, config)
-    model2 = NeuralOperatorModel.load("../data/models/fourier/N_100/MSE/D10_M8_samples5000_epoch0.pt", device)
+    model1 = NeuralOperatorModel(network, save=True)
+    model2 = NeuralOperatorModel.load(f"../data/models/fourier/N_100/MSE/D{D}_M{M}_samples1000_epoch0.pt", device)
 
     print(model1.network.state_dict()['lifting.weight'] == model2.network.state_dict()['lifting.weight'])
