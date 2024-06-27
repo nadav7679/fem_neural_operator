@@ -90,6 +90,13 @@ class ProjectionCoefficient:
         Raises:
             ValueError: If the projection type is not supported.
         """
+        try:
+            self.coeff = self.load(self.filename, self.mesh, self.device).coeff
+            return
+
+        except FileNotFoundError:
+            pass
+
         if self.projection_type == "fourier":
             self._calculate_fourier()
             self._test_fourier()
@@ -128,8 +135,8 @@ class ProjectionCoefficient:
 
 if __name__ == "__main__":
     mesh = fd.PeriodicIntervalMesh(100, 1)
-    proj = ProjectionCoefficient(mesh, 'fourier', 10)
+    proj = ProjectionCoefficient(mesh, 'fourier', 12)
     proj.calculate()
 
-    proj2 = ProjectionCoefficient.load("data/projection_coefficients/fourier/N_100__M_10.pt", mesh)
+    proj2 = ProjectionCoefficient.load("data/projection_coefficients/fourier/N100_M12.pt", mesh)
     print(torch.all(proj2.coeff == proj.coeff))

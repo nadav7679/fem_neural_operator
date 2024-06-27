@@ -1,8 +1,8 @@
 import firedrake as fd
 import torch
 
-from NonlocalNeuralOperator import NonlocalNeuralOperator
-from ProjectionCoefficient import ProjectionCoefficient
+from .NonlocalNeuralOperator import NonlocalNeuralOperator
+from .ProjectionCoefficient import ProjectionCoefficient
 
 
 class NeuralOperatorModel:
