@@ -15,15 +15,14 @@ def average_coefficient_loss(
         loss_type: str = "MSE"
 ) -> List[torch.Tensor]:
     """
-    Calculate the average loss using coefficient approximation (i.e. only using pytorch)
+    Calculate the average loss using coefficient approximation (i.e. only using PyTorch)
     for a list of models and corresponding datasets.
 
     Args:
-        models (List[NonlocalNeuralOperator]): List of models to evaluate.
+        models (List[NeuralOperatorModel]): List of models to evaluate.
         datasets (List[BurgersDataset]): List of datasets to evaluate on.
         h_arr (List[float]): List of the mesh sizes, h=1/nx, corresponding to each dataset.
-        loss_type (str, optional): Type of loss to use ("L2" or "L1"). Defaults to "L2". Note that "L2" loss is summing
-                                    the square of L2 norms rather than the norm (i.e. ||x||^2_{L2}).
+        loss_type (str, optional): Type of loss to use ("MSE" or "L1"). Defaults to "MSE".
 
     Returns:
         List[torch.Tensor]: List of average losses for each model-dataset pair.
@@ -49,11 +48,10 @@ def average_firedrake_loss(
     Calculate the average loss using Firedrake's errornorm for a list of models and datasets.
 
     Args:
-        models (List[NonlocalNeuralOperator]): List of models to evaluate.
+        models (List[NeuralOperatorModel]): List of models to evaluate.
         datasets (List[BurgersDataset]): List of datasets to evaluate on.
-        nx_arr (List[int]): List of grid resolutions corresponding to each dataset.
-        loss_type (str, optional): Type of loss to use ("L2" or "L1"). Defaults to "L2". Note that "L2" loss is summing
-                                    the square of L2 norms rather than the norm (i.e. ||x||^2_{L2}).
+        N_arr (List[int]): List of grid resolutions corresponding to each dataset.
+        loss_type (str, optional): Type of loss to use ("MSE" or "L1"). Defaults to "MSE".
 
     Returns:
         List[float]: List of average losses for each model-dataset pair.
@@ -83,6 +81,14 @@ def average_firedrake_loss(
 
 
 def train_models(config, N_arr):
+    """
+    Train models based on the given configuration and grid resolutions.
+
+    Args:
+        config (dict): Configuration dictionary containing model and training parameters.
+        N_arr (List[int]): List of grid resolutions for training.
+    """
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     for N in N_arr:
@@ -124,6 +130,17 @@ def train_models(config, N_arr):
 
 
 def load_models(config, N_arr):
+    """
+    Load trained models based on the given configuration and grid resolutions.
+
+    Args:
+        config (dict): Configuration dictionary containing model and training parameters.
+        N_arr (List[int]): List of grid resolutions for loading models.
+
+    Returns:
+        Tuple[List[NeuralOperatorModel], List[BurgersDataset]]: List of loaded models and corresponding datasets.
+    """
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     models = []
@@ -160,9 +177,9 @@ if __name__ == "__main__":
     train_models(config, N_arr)
     models, datasets = load_models(config, N_arr)
 
-    losses_coeff = average_coefficient_loss(models, datasets, 1/N_arr, config["loss_type"])
+    losses_coeff = average_coefficient_loss(models, datasets, 1 / N_arr, config["loss_type"])
     losses_fd = average_firedrake_loss(models, datasets, N_arr, config["loss_type"])
 
-    for model, nx, loss_fd, loss_coeff in zip(models, N_arr, losses_fd, losses_coeff):
+    for model, N, loss_fd, loss_coeff in zip(models, N_arr, losses_fd, losses_coeff):
         print(
-            f"nx: {nx:03} | Average Firedrake loss: {loss_fd:.04} | Average coeff loss: {loss_coeff:.04} | Diff {loss_coeff - loss_fd:.04}")
+            f"nx: {N:03} | Average Firedrake loss: {loss_fd:.04} | Average coeff loss: {loss_coeff:.04} | Diff {loss_coeff - loss_fd:.04}")

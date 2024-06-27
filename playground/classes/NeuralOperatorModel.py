@@ -16,6 +16,13 @@ class NeuralOperatorModel:
     ):
         """
         Class to store pretrained NonLocalNeuralOperator networks and their metadata, used for inference.
+
+        Args:
+            network (NonlocalNeuralOperator): The neural network model to be saved and managed.
+            epoch (int): The amount of epochs the model was trained on.
+            loss_type (str): The type of loss function used during training. 'MSE' or 'L1'
+            train_samples (int): The number of training samples used during training.
+            save (bool): Whether to save the model immediately after initialization.
         """
         self.network = network
         self.config = {
@@ -64,7 +71,7 @@ class NeuralOperatorModel:
 
         return model
 
-
+# Usage Example
 if __name__ == "__main__":
     N, M, D, depth = 100, 8, 10, 3
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -74,7 +81,10 @@ if __name__ == "__main__":
     projection.calculate()
     network = NonlocalNeuralOperator(M, D, depth, projection, device)
 
+    # Create and save the model
     model1 = NeuralOperatorModel(network, save=True)
+
+    # Load the model
     model2 = NeuralOperatorModel.load(f"../data/models/fourier/N_100/MSE/D{D}_M{M}_samples1000_epoch0.pt", device)
 
     print(model1.network.state_dict()['lifting.weight'] == model2.network.state_dict()['lifting.weight'])

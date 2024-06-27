@@ -18,14 +18,17 @@ class NeuralNetworkTrainer():
             max_epoch=1,
     ):
         """
-          A high-level class for creating, training, and evaluating neural network.
+        A high-level class for creating, training, and evaluating neural network models.
 
-          Args:
-              optimizer (torch.optim.Optimizer): Optimization algorithm for training.
-              scheduler: torch learning rate scheduler
-              batch_size (int, optional): Batch size for training and testing. Default is 32. Hyperparamater!
-              lr (float, optional): Learning rate for the optimizer. Default is 0.001. Hyperparamater!
-              max_epoch (int, optional): Maximum number of training epochs. Default is 1. Hyperparamater!
+        Args:
+            model (NeuralOperatorModel): The neural network model to be trained and evaluated.
+            trainset (torch.utils.data.Dataset): The training dataset.
+            testset (torch.utils.data.Dataset): The testing dataset.
+            optimizer (torch.optim.Optimizer): Optimization algorithm for training.
+            scheduler (torch.optim.lr_scheduler): Learning rate scheduler.
+            batch_size (int, optional): Batch size for training and testing. Default is 32.
+            lr (float, optional): Learning rate for the optimizer. Default is 0.001.
+            max_epoch (int, optional): Maximum number of training epochs. Default is 1.
         """
 
         self.model = model
@@ -42,6 +45,8 @@ class NeuralNetworkTrainer():
             loss = nn.MSELoss(reduction="sum")
         elif model.config["loss_type"] == "L1":
             loss = nn.L1Loss(reduction="sum")
+        else:
+            raise ValueError(f"Unsupported loss type: {model.config['loss_type']}")
 
         # Sum all differences, multiply by h = 1/N and divide by batch size
         self.criterion = lambda x, y: loss(x, y) / (model.config["N"] * len(x))
@@ -88,10 +93,17 @@ class NeuralNetworkTrainer():
 
     def train_me(self, logs=True, save=True):
         """
-          Train the neural network for max_epoch and print training and testing statistics.
+        Train the neural network for max_epoch and print training and testing statistics.
+
+        Args:
+            logs (bool, optional): Whether to print logs during training. Default is True.
+            save (bool, optional): Whether to save the model after training. Default is True.
+
+        Returns:
+            torch.Tensor: Tensor containing training and testing losses for each epoch.
         """
         losses = torch.zeros((2, self.max_epoch), dtype=torch.float32, device="cpu")
-        # print(losses.device)
+
         for i in range(self.max_epoch):
             epoch = i + 1
             train_loss = self.train_epoch().detach().cpu()
@@ -103,5 +115,8 @@ class NeuralNetworkTrainer():
 
             losses[0, i], losses[1, i] = train_loss, test_loss
             self.scheduler.step()
-        self.model.save()
+
+        if save:
+            self.model.save()
+
         return losses
