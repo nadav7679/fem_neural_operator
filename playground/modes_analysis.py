@@ -1,66 +1,158 @@
+from typing import List
+
 import torch
-import torch.nn as nn
-
 import matplotlib.pyplot as plt
+import firedrake as fd
 
-from burgers import BurgersDataset, fourier_coefficients
-from network import NeuralNetworkTrainer, NonlocalNeuralOperator
-
-nx = 64
-h = 1 / nx
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
-filename = f"data/burgers__samples_1000__nx_{nx}"
-depth = 3
-
-samples = torch.load(f"{filename}.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
-grid = torch.linspace(0, 1, nx, device=device)
-samples_len = samples.shape[0]
-trainset = BurgersDataset(samples[:int(0.8 * samples_len)], grid)
-testset = BurgersDataset(samples[int(0.8 * samples_len):], grid)
+from burgers import BurgersDataset
+from classes import NonlocalNeuralOperator, NeuralOperatorModel, ProjectionCoefficient, NeuralNetworkTrainer
 
 
-lr = 0.01
-my_loss = nn.MSELoss(reduction="sum")
-loss = lambda x, y: h / len(x) * my_loss(x, y)  # Sum of all differences, times step size, divide by batch size
+def train_models(config, mode_arr):
+    """
+    Train models based on the given configuration and list of mode values.
 
-def main():
-    C = 64
-    modes = [i for i in range(2, 34, 4)]
+    Args:
+        config (dict): Configuration dictionary containing model and training parameters.
+        mode_arr (List[int]): List of mode values for training.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    test_loss = []
-    for m in modes:
-        d = round(C/m ** 0.5)
-        coeff = fourier_coefficients(filename, m, nx, d).to(device=device, dtype=torch.float32)
-        dim = coeff.shape[1]
+    for M in mode_arr:
+        config["M"] = M
 
-        net = NonlocalNeuralOperator(device, 2*m + 1, dim, d, depth, coeff).to(dtype=torch.float32)
-        param_num = sum(p.numel() for p in net.parameters() if p.requires_grad)
+        samples = torch.load(f"data/samples/N{config['N']}_samples1000.pt").unsqueeze(2).to(device=device,
+                                                                                            dtype=torch.float32)
+        with fd.CheckpointFile(f"data/meshes/N{config['N']}.h5", "r") as file:
+            mesh = file.load_mesh()
 
-        optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+        projection = ProjectionCoefficient(mesh, config["projection_type"], config["M"], device)
+        projection.calculate()
+
+        network = NonlocalNeuralOperator(
+            config["M"],
+            config["D"],
+            config["depth"],
+            projection,
+            device
+        )
+        model = NeuralOperatorModel(network, train_samples=int(0.8 * samples.shape[0]))
+
+        grid = torch.linspace(0, 1, config["N"], device=device)
+        trainset = BurgersDataset(samples[:int(0.8 * samples.shape[0])], grid)
+        testset = BurgersDataset(samples[int(0.8 * samples.shape[0]):], grid)
+
+        lr = 0.01
+        optimizer = torch.optim.Adam(network.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
         network_trainer = NeuralNetworkTrainer(
-            net,
+            model,
             trainset,
             testset,
-            loss,
             optimizer,
             scheduler,
-            max_epoch=300
+            max_epoch=config["epoch"]
         )
 
-        print(f"Training m={m}, d={d} with param={param_num}")
-        losses = network_trainer.train_me(logs=False)
-        test_loss.append(losses[1, -1])
-        torch.save(net, f"models_modes/nx_{nx}__d_{d}__max_modes_{m}.pt")
+        print(f"Training M={M}, D={config['D']} with param={sum(p.numel() for p in network.parameters() if p.requires_grad)}")
+        network_trainer.train_me(logs=False)
 
-    return modes, test_loss
+
+def load_models(config, mode_arr):
+    """
+    Load trained models based on the given configuration and list of mode values.
+
+    Args:
+        config (dict): Configuration dictionary containing model and training parameters.
+        mode_arr (List[int]): List of mode values for loading models.
+
+    Returns:
+        Tuple[List[NeuralOperatorModel], BurgersDataset]: List of loaded models and the dataset.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    models = []
+    for M in mode_arr:
+        filename = f"data/models/{config['projection_type']}/N{config['N']}/{config['loss_type']}" \
+                   f"/D{config['D']}_M{M}_samples{config['train_samples']}_epoch{config['epoch']}.pt"
+
+        samples = (torch.load(f"data/samples/N{config['N']}_samples1000.pt")
+                   .unsqueeze(2).to(device=device, dtype=torch.float32))
+        grid = torch.linspace(0, 1, config['N'], device=device)
+        dataset = BurgersDataset(samples, grid)
+
+        models.append(NeuralOperatorModel.load(filename, device))
+
+    return models, dataset[int(0.8 * len(dataset)):]  # Cutting off the train data
+
+
+def average_firedrake_loss(
+        models: List[NeuralOperatorModel],
+        dataset: BurgersDataset,
+        N: int,
+        loss_type: str = "MSE"
+) -> List[float]:
+    """
+    Calculate the average loss using Firedrake's errornorm for a list of models on a given dataset.
+
+    Args:
+        models (List[NeuralOperatorModel]): List of models to evaluate.
+        dataset (BurgersDataset): Dataset to evaluate on.
+        N (int): Mesh resolution corresponding to the dataset.
+        loss_type (str, optional): Type of loss to use ("MSE" or "L1"). Defaults to "MSE".
+
+    Returns:
+        List[float]: List of average losses for each model.
+    """
+    targets = dataset[:][1].squeeze(1).detach().cpu().numpy()
+
+    with fd.CheckpointFile(f"data/meshes/N{N}.h5", "r") as file:
+        function_space = fd.FunctionSpace(file.load_mesh(), "CG", 1)
+
+    power = 2 if loss_type == "MSE" else 1
+    loss_type = "L2" if loss_type == "MSE" else loss_type
+
+    losses = []
+    for model in models:
+        predictions = model.network(dataset[:][0]).squeeze(1).detach().cpu().numpy()
+
+        loss = 0
+        for target, predict in zip(targets, predictions):
+            loss += fd.errornorm(
+                fd.Function(function_space, val=target),
+                fd.Function(function_space, val=predict),
+                loss_type
+            ) ** power
+
+        losses.append(loss / len(targets))
+
+    return losses
 
 
 if __name__ == "__main__":
-    modes, losses = main()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    plt.plot(modes, losses)
+    config = {
+        "D": 10,
+        "N": 64,
+        "depth": 3,
+        "projection_type": "fourier",
+        "loss_type": "MSE",
+        "train_samples": 800,
+        "epoch": 200,
+        "C": 64
+    }
+
+    mode_arr = [i for i in range(1, 27, 2)]
+    # train_models(config, mode_arr)
+
+    losses = average_firedrake_loss(*load_models(config, mode_arr), config["N"], config["loss_type"])
+
+    plt.plot(mode_arr, losses)
     plt.yscale("log")
+    plt.title(f"MSE average loss for N={config['N']}")
+    plt.xlabel("Fourier Modes")
+    plt.ylabel("MSE")
+    plt.grid()
+    plt.legend()
     plt.show()
-
