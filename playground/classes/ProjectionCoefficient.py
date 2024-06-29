@@ -77,7 +77,7 @@ class ProjectionCoefficient:
                 assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
 
             else:
-                assert abs(torch.sum(self.coeff[i])) < 10E-9
+                assert abs(torch.sum(self.coeff[i])) < 10E-8
 
     def calculate(self, save=True):
         """

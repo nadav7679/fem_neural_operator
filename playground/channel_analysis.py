@@ -124,7 +124,8 @@ def train_models(config, D_arr):
 
         lr = 0.01
         optimizer = torch.optim.Adam(network.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 0.5*config["epoch"], gamma=0.1)
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 0.5*config["epoch"], gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10000, gamma=0.1)
         network_trainer = NeuralNetworkTrainer(
             model,
             trainset,
@@ -167,6 +168,7 @@ def load_models(config, D_arr):
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
     D_arr = torch.arange(5, 160, 5).to(dtype=torch.int)
 
@@ -183,7 +185,7 @@ if __name__ == "__main__":
 
     for epoch in [50, 100, 200, 300, 400, 500]:
         config["epoch"] = epoch
-        # train_models(config, D_arr)
+        train_models(config, D_arr)
         losses = average_firedrake_loss(*load_models(config, D_arr), config["N"], "MSE")
         plt.plot(D_arr, losses, label=f"{config['epoch']} epochs")
 
