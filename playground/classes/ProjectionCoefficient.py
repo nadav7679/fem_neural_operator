@@ -61,8 +61,8 @@ class ProjectionCoefficient:
                 self.coeff[i] += fd.assemble(v * fd.dx).dat.data
                 continue
 
-            self.coeff[2 * i - 1] += fd.assemble(fd.sin(i * 2 * fd.pi * x) * v * fd.dx).dat.data
-            self.coeff[2 * i] += fd.assemble(fd.cos(i * 2 * fd.pi * x) * v * fd.dx).dat.data
+            self.coeff[2 * i - 1] += fd.assemble(2 * fd.sin(i * 2 * fd.pi * x) * v * fd.dx).dat.data
+            self.coeff[2 * i] += fd.assemble(2 * fd.cos(i * 2 * fd.pi * x) * v * fd.dx).dat.data
 
     def _test_fourier(self):
         """
@@ -77,7 +77,7 @@ class ProjectionCoefficient:
                 assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
 
             else:
-                assert abs(torch.sum(self.coeff[i])) < 10E-8
+                assert abs(torch.sum(self.coeff[i])) < 10E-9
 
     def calculate(self, save=True):
         """
