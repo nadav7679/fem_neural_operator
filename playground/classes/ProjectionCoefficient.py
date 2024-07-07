@@ -55,7 +55,7 @@ class ProjectionCoefficient:
         x = fd.SpatialCoordinate(self.mesh)[0]
         v = fd.TestFunction(function_space)
 
-        self.coeff = torch.zeros((2 * self.M + 1, self.N), dtype=torch.float32)  # Zero mode and cos, sin for each mode
+        self.coeff = torch.zeros((2 * self.M + 1, self.N), dtype=torch.float64)  # Zero mode and cos, sin for each mode
         for i in range(self.M + 1):
             if i == 0:
                 self.coeff[i] += fd.assemble(v * fd.dx).dat.data
@@ -77,7 +77,7 @@ class ProjectionCoefficient:
                 assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
 
             else:
-                assert abs(torch.sum(self.coeff[i])) < 10E-9
+                assert abs(torch.sum(self.coeff[i])) < 10E-10
 
     def calculate(self, save=True):
         """
@@ -100,7 +100,7 @@ class ProjectionCoefficient:
         if self.projection_type == "fourier":
             self._calculate_fourier()
             self._test_fourier()
-            self.coeff = self.coeff.to(device=self.device)
+            self.coeff = self.coeff.to(device=self.device, dtype=torch.float32)
 
         else:
             raise ValueError("Only 'fourier' projection_type is supported")
