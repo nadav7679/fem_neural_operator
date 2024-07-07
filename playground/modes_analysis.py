@@ -44,7 +44,7 @@ def train_models(config, mode_arr):
 
         lr = 0.01
         optimizer = torch.optim.Adam(network.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5)
         network_trainer = NeuralNetworkTrainer(
             model,
             trainset,
@@ -133,18 +133,18 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     config = {
-        "D": 10,
+        "D": 16,
         "N": 64,
         "depth": 3,
         "projection_type": "fourier",
         "loss_type": "MSE",
         "train_samples": 800,
-        "epoch": 200,
+        "epoch": 500,
         "C": 64
     }
 
-    mode_arr = [i for i in range(1, 27, 2)]
-    # train_models(config, mode_arr)
+    mode_arr = [i for i in range(2, 27, 2)]
+    train_models(config, mode_arr)
 
     losses = average_firedrake_loss(*load_models(config, mode_arr), config["N"], config["loss_type"])
 
