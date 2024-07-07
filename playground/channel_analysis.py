@@ -135,6 +135,7 @@ def train_models(config, D_arr):
             max_epoch=config["epoch"]
         )
 
+        print(f"Training: M={config['M']}, D={config['D']}")
         network_trainer.train_me(logs=False)
 
 
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    D_arr = torch.arange(10, 110, 5).to(dtype=torch.int)
+    D_arr = torch.arange(10, 110, 10).to(dtype=torch.int)
 
     config = {
         "N": 64,
@@ -178,13 +179,13 @@ if __name__ == "__main__":
         "projection_type": "fourier",
         "loss_type": "MSE",
         "train_samples": 800,
-        "epoch": 400,
+        "epoch": 500,
     }
 
 
-    for M in [4, 8, 12, 16]:
+    for M in [2, 4, 8, 16]:
         config["M"] = M
-        # train_models(config, D_arr)
+        train_models(config, D_arr)
         losses = average_firedrake_loss(*load_models(config, D_arr), config["N"], "MSE")
         plt.plot(D_arr, losses, label=f"M={config['M']}")
 
