@@ -22,6 +22,7 @@ class ProjectionCoefficient:
             self,
             mesh: fd.Mesh,
             equation_type: str,
+            finite_element_family: str,
             projection_type: str,
             M: int,
             device='cpu'
@@ -32,18 +33,22 @@ class ProjectionCoefficient:
         Args:
             mesh (fd.Mesh): The computational mesh.
             equation_type (str): The equation the Operator should learn. Either 'Burgers' or 'KS'
+            finite_element_family (str): The FE family, either CG1, CG3 or HER
             projection_type (str): The type of projection (currently only 'fourier' is supported).
             M (int): Number of Fourier modes.
             device (str): Device for tensor computations ('cpu' or 'cuda').
         """
         self.mesh = mesh
         self.equation_type = equation_type
+        self.finite_element_family = finite_element_family
         self.projection_type = projection_type
         self.M = M
         self.device = device
 
         self.N = int(len(mesh.cell_sizes.dat.data))
-        self.filename = f"data/{equation_type}/projection_coefficients/{projection_type}/N{self.N}_M{self.M}.pt"
+
+
+        self.filename = f"data/{equation_type}/projection_coefficients/{finite_element_family}/{projection_type}/N{self.N}_M{self.M}.pt"
         self.coeff = torch.zeros((M, self.N))
 
     def _calculate_fourier(self):
@@ -55,11 +60,14 @@ class ProjectionCoefficient:
         Returns:
             None
         """
-        function_space = fd.FunctionSpace(self.mesh, "CG", degree=1)
+        degree = 3 if self.finite_element_family in ["CG3", "HER"] else 1
+        family = "CG" if self.finite_element_family in ["CG1", "CG3"] else self.finite_element_family
+
+        function_space = fd.FunctionSpace(self.mesh, family, degree)
         x = fd.SpatialCoordinate(self.mesh)[0]
         v = fd.TestFunction(function_space)
 
-        self.coeff = torch.zeros((2 * self.M + 1, self.N), dtype=torch.float64)  # Zero mode and cos, sin for each mode
+        self.coeff = torch.zeros((2 * self.M + 1, function_space.dof_count), dtype=torch.float64)  # Zero mode and cos, sin for each mode
         for i in range(self.M + 1):
             if i == 0:
                 self.coeff[i] += fd.assemble(v * fd.dx).dat.data
@@ -110,6 +118,7 @@ class ProjectionCoefficient:
             raise ValueError("Only 'fourier' projection_type is supported")
 
         if save:
+            print(self.filename)
             torch.save(self.coeff, self.filename)
 
     @staticmethod
@@ -125,13 +134,14 @@ class ProjectionCoefficient:
         Returns:
             ProjectionCoefficient: An instance of ProjectionCoefficient with loaded coefficients.
         """
-        projection_type = filename.split("/")[2]
+        finite_element_family, projection_type = filename.split("/")[3:5]
+        equation_type = filename.split("/")[1]
+
+        degree = 3 if finite_element_family in ["CG3", "HER"] else 1
         M = int(filename[filename.find("M") + 1:filename.find(".pt")])
         N = int(len(mesh.cell_sizes.dat.data))
-        proj = ProjectionCoefficient(mesh,
-                                     projection_type,
-                                     M,
-                                     N)
+
+        proj = ProjectionCoefficient(mesh, equation_type, finite_element_family, projection_type, M, N)
         proj.coeff = torch.load(filename).to(device=device)
 
         return proj
@@ -139,8 +149,9 @@ class ProjectionCoefficient:
 
 if __name__ == "__main__":
     mesh = fd.PeriodicIntervalMesh(100, 1)
-    proj = ProjectionCoefficient(mesh, 'fourier', 12)
-    proj.calculate()
+    proj1 = ProjectionCoefficient(mesh, "burgers", "CG1", 'fourier', 12)
+    proj1.calculate()
 
-    proj2 = ProjectionCoefficient.load("data/projection_coefficients/fourier/N100_M12.pt", mesh)
-    print(torch.all(proj2.coeff == proj.coeff))
+    proj2 = ProjectionCoefficient.load("data/burgers/projection_coefficients/CG1/fourier/N100_M12.pt", mesh)
+    print(proj1.coeff.shape)
+    print(torch.all(proj2.coeff == proj1.coeff))
