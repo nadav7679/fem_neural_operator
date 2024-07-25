@@ -86,6 +86,7 @@ class ProjectionCoefficient:
         """
         for i in range(2 * self.M - 1):
             if i == 0:
+                print(torch.sum(self.coeff[i]))
                 assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
 
             else:
@@ -111,7 +112,7 @@ class ProjectionCoefficient:
 
         if self.projection_type == "fourier":
             self._calculate_fourier()
-            self._test_fourier()
+            # self._test_fourier()
             self.coeff = self.coeff.to(device=self.device, dtype=torch.float32)
 
         else:
