@@ -9,6 +9,7 @@ class ProjectionCoefficient:
 
     Attributes:
         mesh (fd.Mesh): The computational mesh.
+        equation_type (str): The equation the Operator should learn. Either 'Burgers' or 'KS'
         projection_type (str): The type of projection (currently only 'fourier' is supported).
         M (int): Number of projection functions (number of modes in the case of Fourier, then M=2*modes+1).
         N (int): Number of mesh points.
@@ -20,6 +21,7 @@ class ProjectionCoefficient:
     def __init__(
             self,
             mesh: fd.Mesh,
+            equation_type: str,
             projection_type: str,
             M: int,
             device='cpu'
@@ -29,17 +31,19 @@ class ProjectionCoefficient:
 
         Args:
             mesh (fd.Mesh): The computational mesh.
+            equation_type (str): The equation the Operator should learn. Either 'Burgers' or 'KS'
             projection_type (str): The type of projection (currently only 'fourier' is supported).
             M (int): Number of Fourier modes.
             device (str): Device for tensor computations ('cpu' or 'cuda').
         """
         self.mesh = mesh
+        self.equation_type = equation_type
         self.projection_type = projection_type
         self.M = M
         self.device = device
 
         self.N = int(len(mesh.cell_sizes.dat.data))
-        self.filename = f"data/projection_coefficients/{projection_type}/N{self.N}_M{self.M}.pt"
+        self.filename = f"data/{equation_type}/projection_coefficients/{projection_type}/N{self.N}_M{self.M}.pt"
         self.coeff = torch.zeros((M, self.N))
 
     def _calculate_fourier(self):
