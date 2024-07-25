@@ -5,3 +5,5 @@ __pycache__
 firedrake/
 firedrake-install
 firedrake-install.log
+playground/data/burgers/samples/N8192_nu001_T1_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T01_samples1200.pt
