@@ -46,7 +46,7 @@ class ProjectionCoefficient:
         self.device = device
 
         self.N = int(len(mesh.cell_sizes.dat.data))
-
+        self.L = 10 if equation_type=="KS" else 1
 
         self.filename = f"data/{equation_type}/projection_coefficients/{finite_element_family}/{projection_type}/N{self.N}_M{self.M}.pt"
         self.coeff = torch.zeros((M, self.N))
@@ -70,11 +70,11 @@ class ProjectionCoefficient:
         self.coeff = torch.zeros((2 * self.M + 1, function_space.dof_count), dtype=torch.float64)  # Zero mode and cos, sin for each mode
         for i in range(self.M + 1):
             if i == 0:
-                self.coeff[i] += fd.assemble(v * fd.dx).dat.data
+                self.coeff[i] += fd.assemble(v/self.L * fd.dx).dat.data
                 continue
 
-            self.coeff[2 * i - 1] += fd.assemble(2 * fd.sin(i * 2 * fd.pi * x) * v * fd.dx).dat.data
-            self.coeff[2 * i] += fd.assemble(2 * fd.cos(i * 2 * fd.pi * x) * v * fd.dx).dat.data
+            self.coeff[2 * i - 1] += fd.assemble(2/self.L * fd.sin(i * 2 * fd.pi * x/self.L) * v * fd.dx).dat.data
+            self.coeff[2 * i] += fd.assemble(2/self.L * fd.cos(i * 2 * fd.pi * x/self.L) * v * fd.dx).dat.data
 
     def _test_fourier(self):
         """
@@ -87,10 +87,11 @@ class ProjectionCoefficient:
         for i in range(2 * self.M - 1):
             if i == 0:
                 print(torch.sum(self.coeff[i]))
-                assert abs(torch.sum(self.coeff[i]) - 1) < 10E-12
+                assert abs(torch.sum(self.coeff[i]) - 1) < 10E-15
 
             else:
-                assert abs(torch.sum(self.coeff[i])) < 10E-10
+                print(abs(torch.sum(self.coeff[i])))
+                assert abs(torch.sum(self.coeff[i])) < 10E-15
 
     def calculate(self, save=True):
         """
@@ -112,7 +113,7 @@ class ProjectionCoefficient:
 
         if self.projection_type == "fourier":
             self._calculate_fourier()
-            # self._test_fourier()
+            self._test_fourier()
             self.coeff = self.coeff.to(device=self.device, dtype=torch.float32)
 
         else:
@@ -149,10 +150,10 @@ class ProjectionCoefficient:
 
 
 if __name__ == "__main__":
-    mesh = fd.PeriodicIntervalMesh(100, 1)
-    proj1 = ProjectionCoefficient(mesh, "burgers", "CG1", 'fourier', 12)
-    proj1.calculate()
+    mesh = fd.PeriodicIntervalMesh(100, 10)
+    proj1 = ProjectionCoefficient(mesh, "KS", "HER", 'fourier', 16)
+    proj1.calculate(save=False)
 
-    proj2 = ProjectionCoefficient.load("data/burgers/projection_coefficients/CG1/fourier/N100_M12.pt", mesh)
-    print(proj1.coeff.shape)
-    print(torch.all(proj2.coeff == proj1.coeff))
+    # proj2 = ProjectionCoefficient.load("data/burgers/projection_coefficients/CG1/fourier/N100_M12.pt", mesh)
+    # print(proj1.coeff.shape)
+    # print(torch.all(proj2.coeff == proj1.coeff))
