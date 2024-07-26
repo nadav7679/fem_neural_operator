@@ -10,6 +10,7 @@ class NeuralOperatorModel:
             self,
             network: NonlocalNeuralOperator,
             equation_type,
+            finite_element_space,
             epoch=0,
             train_samples=1000,
             save: bool = False
@@ -26,18 +27,22 @@ class NeuralOperatorModel:
         """
         self.network = network
         self.equation_type = equation_type
+        self.finite_element_space = finite_element_space
         self.config = {
             "M": network.M,
             "D": network.D,
             "depth": network.depth,
             "N": network.projection.N,
             "projection_type": network.projection.projection_type,
+            "finite_element_space": finite_element_space,
             "epoch": epoch,
             "train_samples": train_samples
         }
 
         self.filename = f"data/{equation_type}/models/{network.projection.projection_type}/N{network.projection.N}" \
                         f"/D{network.D}_M{network.M}_samples{train_samples}_epoch{epoch}.pt"
+        
+        self.param_num = sum(p.numel() for p in network.parameters() if p.requires_grad)
 
         if save:
             self.save()
@@ -58,13 +63,13 @@ class NeuralOperatorModel:
         mesh = fd.PeriodicIntervalMesh(config["N"], 1)
 
         projection = ProjectionCoefficient.load(
-            f"data/{equation_type}/projection_coefficients"
+            f"data/{equation_type}/projection_coefficients/{finite_element_space}"
             f"/{config['projection_type']}/N{config['N']}_M{config['M']}.pt",
             mesh, device)
         network = NonlocalNeuralOperator(config["M"], config["D"], config["depth"], projection, device)
         network.load_state_dict(state_dict)
 
-        model = NeuralOperatorModel(network, config["epoch"], config["train_samples"], save=False)
+        model = NeuralOperatorModel(network, equation_type, config["finite_element_space"], config["epoch"], config["train_samples"], save=False)
         model.filename = filename
 
         return model
