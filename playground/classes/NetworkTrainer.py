@@ -11,10 +11,10 @@ class NeuralNetworkTrainer():
             model: NeuralOperatorModel,
             trainset,
             testset,
+            loss,
             optimizer,
             scheduler,
             batch_size=32,
-            lr=0.001,
             max_epoch=1,
     ):
         """
@@ -35,18 +35,10 @@ class NeuralNetworkTrainer():
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.batch_size = batch_size
-        self.lr = lr
         self.max_epoch = max_epoch
 
         self.trainloader = DataLoader(trainset, batch_size, shuffle=True)
         self.testloader = DataLoader(testset, batch_size, shuffle=False)
-
-        if model.config["loss_type"] == "MSE":
-            loss = nn.MSELoss(reduction="sum")
-        elif model.config["loss_type"] == "L1":
-            loss = nn.L1Loss(reduction="sum")
-        else:
-            raise ValueError(f"Unsupported loss type: {model.config['loss_type']}")
 
         # Sum all differences, multiply by h = 1/N and divide by batch size
         self.criterion = lambda x, y: loss(x, y) / (model.config["N"] * len(x))

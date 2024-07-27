@@ -1,7 +1,13 @@
-*/__pycache__
+__pycache__
 */.ipynb_checkpoints
 */media
 .idea/
 firedrake/
 firedrake-install
 firedrake-install.log
+playground/data/burgers/samples/N8192_nu001_T1_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T01_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T02_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T03_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T04_samples1200.pt
+playground/data/KS/samples/N4096_HER_nu0029_T05_samples1200.pt

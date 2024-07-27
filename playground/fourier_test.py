@@ -8,30 +8,33 @@ from classes import ProjectionCoefficient
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    N, M, D = 128, 16, 10
+    N, M, D = 512, 16, 10
 
-    with fd.CheckpointFile(f"data/meshes/N{N}.h5", "r") as file:
+    with fd.CheckpointFile(f"data/KS/meshes/N{N}.h5", "r") as file:
         mesh = file.load_mesh()
-    x = fd.SpatialCoordinate(mesh)[0]
-    fs = fd.FunctionSpace(mesh, "CG", 1)
 
-    projection = ProjectionCoefficient(mesh, "fourier", M, device)
+    x = fd.SpatialCoordinate(mesh)[0]
+    fs = fd.FunctionSpace(mesh, "HER", 3)
+
+    fs_out = fd.FunctionSpace(mesh, "CG", 3)
+
+    projection = ProjectionCoefficient(mesh, "KS", "HER", "fourier", M, device)
     projection.calculate(False)
 
     initial_function = fd.Function(fs, name="initial")
     initial_function.interpolate(-(x-0.5)**2)
 
     fig, axes = plt.subplots()
-    fd.plot(initial_function, axes=axes)
+    # fd.plot(initial_function, axes=axes)
 
-    psi_arr = []
-    for i in range(2*M + 1):
-        if i == 0:
-            psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(1))
-            continue
+    # psi_arr = []
+    # for i in range(2*M + 1):
+    #     if i == 0:
+    #         psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(1))
+    #         continue
 
-        psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.sin(i * 2 * fd.pi * x)))
-        psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.cos(i * 2 * fd.pi * x)))
+    #     psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.sin(i * 2 * fd.pi * x)))
+    #     psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.cos(i * 2 * fd.pi * x)))
 
 
 
