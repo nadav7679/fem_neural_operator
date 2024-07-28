@@ -1,13 +1,16 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 import firedrake as fd
 import torch
+import torch.nn as nn
 
 from .NeuralOperatorNetwork import NeuralOperatorNetwork
 from .ProjectionCoefficient import ProjectionCoefficient
+from .NetworkTrainer import NeuralNetworkTrainer
+from .Dataset import Dataset
 
 
-class NeuralOperatorModel(metaclass=ABCMeta):
+class NeuralOperatorModel(ABC):
     def __init__(
             self,
             N,
@@ -44,8 +47,32 @@ class NeuralOperatorModel(metaclass=ABCMeta):
         else:
             self.dof_count = N
 
-        with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
+        with fd.CheckpointFile(f"../data/{equation_name}/meshes/N{N}.h5", "r") as f:
             self.mesh = f.load_mesh()
+
+    def train(self, data_path, max_epoch, lr=0.01, scheduler=None, device="cuda"):
+        samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
+        grid = torch.linspace(0, self.L, self.dof_count, device=device)
+        trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
+        testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+
+        mse_loss = nn.MSELoss(reduction="sum")
+        loss = lambda x, y: mse_loss(x, y) / (N * len(x))  # Sum of differences, times step size, divide by batch size
+
+        optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5) if scheduler is None else scheduler
+
+        network_trainer = NeuralNetworkTrainer(
+            self,
+            trainset,
+            testset,
+            loss,
+            optimizer,
+            scheduler,
+            max_epoch=max_epoch
+        )
+
+        network_trainer.train_me()
 
     @property
     @abstractmethod
@@ -87,7 +114,7 @@ class NeuralOperatorModel(metaclass=ABCMeta):
             f"data/{equation_name}/projection_coefficients/{finite_element_space}"
             f"/{config['projection_type']}/N{config['N']}_M{config['M']}.pt",
             mesh, device)
-        network = NonlocalNeuralOperator(config["M"], config["D"], config["depth"], projection, device)
+        network = NeuralOperatorNetwork(config["M"], config["D"], config["depth"], projection, device)
         network.load_state_dict(state_dict)
 
         model = NeuralOperatorModel(network, equation_name, config["finite_element_space"], config["epoch"],
@@ -109,7 +136,7 @@ class BurgersModel(NeuralOperatorModel):
         except FileNotFoundError:
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, "CG1", projection_type, device)
             self.projection.calculate(
-                f"data/burgers/projection_coefficients/CG1/{projection_type}/N{N}_M{M}.pt")
+                f"../data/burgers/projection_coefficients/CG1/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -130,7 +157,7 @@ class KSModel(NeuralOperatorModel):
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, finite_element_family, projection_type,
                                                     device)
             self.projection.calculate(
-                f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
+                f"../data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -138,12 +165,14 @@ class KSModel(NeuralOperatorModel):
 
 # Usage Example
 if __name__ == "__main__":
-    N, M, D, depth, equation_name = 128, 8, 10, 3, "KS"
+    N, M, D, depth, equation_name = 2048, 8, 10, 3, "KS"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Running on {device}")
 
     BurgersModel(N, M, D, depth, "fourier", device=device)
-    KSModel(N, M, D, depth, "fourier", "HER", device=device)
+    ks_model = KSModel(N, M, D, depth, "fourier", "HER", device=device)
+
+    ks_model.train(f"../data/KS/samples/N{N}_HER_nu0029_T01_samples1200.pt", 10, device=device)
 
     # mesh = fd.PeriodicIntervalMesh(N, 1)
     # projection = ProjectionCoefficient(mesh, equation_name, "fourier", M, device)

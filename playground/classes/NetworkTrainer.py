@@ -1,14 +1,11 @@
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-
-from .NeuralOperatorModel import NeuralOperatorModel
 
 
 class NeuralNetworkTrainer():
     def __init__(
             self,
-            model: NeuralOperatorModel,
+            model,
             trainset,
             testset,
             loss,
@@ -32,16 +29,13 @@ class NeuralNetworkTrainer():
         """
 
         self.model = model
+        self.trainloader = DataLoader(trainset, batch_size, shuffle=True)
+        self.testloader = DataLoader(testset, batch_size, shuffle=False)
+        self.criterion = loss
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.batch_size = batch_size
         self.max_epoch = max_epoch
-
-        self.trainloader = DataLoader(trainset, batch_size, shuffle=True)
-        self.testloader = DataLoader(testset, batch_size, shuffle=False)
-
-        # Sum all differences, multiply by h = 1/N and divide by batch size
-        self.criterion = lambda x, y: loss(x, y) / (model.config["N"] * len(x))
 
     def train_epoch(self):
         """
@@ -61,7 +55,7 @@ class NeuralNetworkTrainer():
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-        self.model.config["epoch"] += 1
+        self.model.epoch += 1
         return self.criterion(
             self.model.network(self.trainloader.dataset.inputs),
             self.trainloader.dataset.targets
