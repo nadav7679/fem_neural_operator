@@ -1,4 +1,4 @@
 from .NetworkTrainer import NeuralNetworkTrainer
-from .NonlocalNeuralOperator import NonlocalNeuralOperator, NeuralOperatorLayer
+from .NeuralOperatorNetwork import NeuralOperatorNetwork, NeuralOperatorLayer
 from .NeuralOperatorModel import NeuralOperatorModel
 from .ProjectionCoefficient import ProjectionCoefficient

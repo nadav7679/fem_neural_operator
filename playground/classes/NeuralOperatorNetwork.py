@@ -33,7 +33,7 @@ class NeuralOperatorLayer(nn.Module):
         # Linear matrix multiplication that mixes up the channels (W operator), also called MLP. It includes the bias.
         self.linear = nn.Conv1d(D, D, kernel_size=1, device=device)
 
-        self.weights = nn.Parameter(torch.rand(2*M + 1, D, D, requires_grad=True, device=device))  # MxDxD parameters
+        self.weights = nn.Parameter(torch.rand(2 * M + 1, D, D, requires_grad=True, device=device))  # MxDxD parameters
 
     def forward(self, u):
         wu = self.linear(u)
@@ -42,7 +42,7 @@ class NeuralOperatorLayer(nn.Module):
         return functional.gelu(wu + s)
 
 
-class NonlocalNeuralOperator(nn.Module):
+class NeuralOperatorNetwork(nn.Module):
     def __init__(
             self,
             M: int,
@@ -100,6 +100,6 @@ if __name__ == "__main__":
 
     u = torch.randn((batchsize, 2, N), device=device)  # Unsqueeze to add channel dimension
 
-    model = NonlocalNeuralOperator(M, D, 3, projection, device)
+    model = NeuralOperatorNetwork(M, D, 3, projection, device)
     u = model(u)
     print(u, u.shape)
