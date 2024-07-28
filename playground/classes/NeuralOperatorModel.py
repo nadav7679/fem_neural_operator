@@ -47,7 +47,7 @@ class NeuralOperatorModel(ABC):
         else:
             self.dof_count = N
 
-        with fd.CheckpointFile(f"../data/{equation_name}/meshes/N{N}.h5", "r") as f:
+        with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
             self.mesh = f.load_mesh()
 
     def train(self, data_path, max_epoch, lr=0.01, scheduler=None, device="cuda"):
@@ -136,7 +136,7 @@ class BurgersModel(NeuralOperatorModel):
         except FileNotFoundError:
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, "CG1", projection_type, device)
             self.projection.calculate(
-                f"../data/burgers/projection_coefficients/CG1/{projection_type}/N{N}_M{M}.pt")
+                f"data/burgers/projection_coefficients/CG1/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -157,7 +157,7 @@ class KSModel(NeuralOperatorModel):
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, finite_element_family, projection_type,
                                                     device)
             self.projection.calculate(
-                f"../data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
+                f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     BurgersModel(N, M, D, depth, "fourier", device=device)
     ks_model = KSModel(N, M, D, depth, "fourier", "HER", device=device)
 
-    ks_model.train(f"../data/KS/samples/N{N}_HER_nu0029_T01_samples1200.pt", 10, device=device)
+    ks_model.train(f"data/KS/samples/N{N}_HER_nu0029_T01_samples1200.pt", 10, device=device)
 
     # mesh = fd.PeriodicIntervalMesh(N, 1)
     # projection = ProjectionCoefficient(mesh, equation_name, "fourier", M, device)
