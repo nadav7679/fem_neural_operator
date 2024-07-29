@@ -57,7 +57,7 @@ class NeuralOperatorModel(ABC):
         testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
 
         mse_loss = nn.MSELoss(reduction="sum")
-        loss = lambda x, y: mse_loss(x, y) / (N * len(x))  # Sum of differences, times step size, divide by batch size
+        loss = lambda x, y: mse_loss(x, y) / (self.N * len(x))  # Sum of differences, times step size, divide by batch size
 
         optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5) if scheduler is None else scheduler
@@ -157,7 +157,7 @@ class KSModel(NeuralOperatorModel):
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, finite_element_family, projection_type,
                                                     device)
             self.projection.calculate(
-                f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
+                f"data/KS/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)

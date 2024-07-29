@@ -1,4 +1,4 @@
 from .NetworkTrainer import NeuralNetworkTrainer
 from .NeuralOperatorNetwork import NeuralOperatorNetwork, NeuralOperatorLayer
-from .NeuralOperatorModel import NeuralOperatorModel
+from .NeuralOperatorModel import BurgersModel, KSModel
 from .ProjectionCoefficient import ProjectionCoefficient
