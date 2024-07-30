@@ -50,7 +50,7 @@ class NeuralOperatorModel(ABC):
         with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
             self.mesh = f.load_mesh()
 
-    def train(self, data_path, max_epoch, lr=0.01, scheduler=None, device="cuda"):
+    def train(self, data_path, max_epoch, lr=0.01, optimizer = None, scheduler=None, device="cuda"):
         samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
         grid = torch.linspace(0, self.L, self.dof_count, device=device)
         trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
@@ -59,7 +59,7 @@ class NeuralOperatorModel(ABC):
         mse_loss = nn.MSELoss(reduction="sum")
         loss = lambda x, y: mse_loss(x, y) / (self.N * len(x))  # Sum of differences, times step size, divide by batch size
 
-        optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(self.network.parameters(), lr=lr) if optimizer is None else optimizer
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5) if scheduler is None else scheduler
 
         network_trainer = NeuralNetworkTrainer(
@@ -86,7 +86,7 @@ class NeuralOperatorModel(ABC):
 
     def save(self):
         self.filename = f"data/{self.equation_name}/models/{self.projection_type}/N{self.N}" \
-                        f"/D{self.network.D}_M{self.network.M}_samples{self.train_samples}_epoch{self.epoch}.pt"
+                        f"/T{self.T}/D{self.network.D}_M{self.network.M}_samples{self.train_samples}_epoch{self.epoch}.pt"
 
         config = {
             "M": self.network.M,
@@ -105,21 +105,20 @@ class NeuralOperatorModel(ABC):
         }, self.filename)
 
     @staticmethod
-    def load(filename, equation_name, device):
+    def load(filename, N, L, M, equation_name, finite_element_space, device):
         state_dict, config = torch.load(filename).values()
 
-        mesh = fd.PeriodicIntervalMesh(config["N"], 1)
-
-        projection = ProjectionCoefficient.load(
-            f"data/{equation_name}/projection_coefficients/{finite_element_space}"
-            f"/{config['projection_type']}/N{config['N']}_M{config['M']}.pt",
-            mesh, device)
+        with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
+            mesh = f.load_mesh()
+            
+            
+        projection = ProjectionCoefficient.load(mesh, equation_name, N, L, M, finite_element_space, "fourier", device=device)
+        
         network = NeuralOperatorNetwork(config["M"], config["D"], config["depth"], projection, device)
         network.load_state_dict(state_dict)
 
-        model = NeuralOperatorModel(network, equation_name, config["finite_element_space"], config["epoch"],
+        model = self.__init__(network, equation_name, config["finite_element_space"], config["epoch"],
                                     config["train_samples"], save=False)
-        model.filename = filename
 
         return model
 
@@ -127,8 +126,10 @@ class NeuralOperatorModel(ABC):
 class BurgersModel(NeuralOperatorModel):
     network, param_num = None, None
 
-    def __init__(self, N, M, D, depth, projection_type, train_samples=1000, device="cuda", dtype=torch.float64):
+    def __init__(self, N, M, D, depth, T, projection_type, train_samples=1000, device="cuda", dtype=torch.float64):
         super().__init__(N, 1, projection_type, "burgers", "CG1", train_samples)
+        
+        self.T = T
 
         try:
             self.projection = ProjectionCoefficient.load(self.mesh, "burgers", N, self.L, M, "CG1", projection_type,
@@ -140,14 +141,32 @@ class BurgersModel(NeuralOperatorModel):
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
+        
+        
+    @staticmethod
+    def load(filename, N, T, device):
+        state_dict, config = torch.load(filename).values()
+
+        with fd.CheckpointFile(f"data/burgers/meshes/N{N}.h5", "r") as f:
+            mesh = f.load_mesh()
+                    
+        
+        model = BurgersModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], device=device)
+        model.network.load_state_dict(state_dict)
+
+        return model
+
+
 
 
 class KSModel(NeuralOperatorModel):
     network, param_num = None, None
 
-    def __init__(self, N, M, D, depth, projection_type, finite_element_family, train_samples=1000, device="cuda",
+    def __init__(self, N, M, D, depth, T, projection_type, finite_element_family, train_samples=1000, device="cuda",
                  dtype=torch.float64):
         super().__init__(N, 10, "fourier", "KS", finite_element_family, train_samples)
+        
+        self.T = T
 
         try:
             self.projection = ProjectionCoefficient.load(self.mesh, "KS", N, self.L, M, finite_element_family,
@@ -161,6 +180,24 @@ class KSModel(NeuralOperatorModel):
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
+        
+    
+    @staticmethod
+    def load(filename, N, T, device):
+        state_dict, config = torch.load(filename).values()
+
+        with fd.CheckpointFile(f"data/KS/meshes/N{N}.h5", "r") as f:
+            mesh = f.load_mesh()
+            
+            
+        # projection = ProjectionCoefficient.load(mesh, equation_name, N, L, M, finite_element_space, "fourier", device=device)
+        
+        
+        model = KSModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], config["finite_element_space"], device=device)
+        model.network.load_state_dict(state_dict)
+
+        return model
+
 
 
 # Usage Example
