@@ -27,14 +27,14 @@ if __name__ == "__main__":
     fig, axes = plt.subplots()
     # fd.plot(initial_function, axes=axes)
 
-    # psi_arr = []
-    # for i in range(2*M + 1):
-    #     if i == 0:
-    #         psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(1))
-    #         continue
+    psi_arr = []
+    for i in range(2*M + 1):
+        if i == 0:
+            psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(1))
+            continue
 
-    #     psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.sin(i * 2 * fd.pi * x)))
-    #     psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.cos(i * 2 * fd.pi * x)))
+        psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(2 * fd.sin(i * 2 * fd.pi * x)))
+        psi_arr.append(fd.Function(fs, name=f"Mode {i}").interpolate(fd.cos(i * 2 * fd.pi * x)))
 
 
 

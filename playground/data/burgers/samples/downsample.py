@@ -44,19 +44,19 @@ if __name__ == "__main__":
     with fd.CheckpointFile(f"../meshes/N8192.h5", "r") as file:
         data_fs = fd.FunctionSpace(file.load_mesh(), "CG", 1)
 
-    # for N in [1024, 2048]:
-    #     downsample(data_fs, data, N)
+    for N in [64, 128, 256, 512, 1024, 2048, 4096]:
+        downsample(data_fs, data, N)
 
-    N1 = 8192
-    N2 = 512
+    # N1 = 8192
+    # N2 = 512
 
-    data1 = torch.load(f"N{N1}_nu001_T1_samples1200.pt").numpy()
-    data2 = torch.load(f"N{N2}_nu001_T1_samples1200.pt").numpy()
+    # data1 = torch.load(f"N{N1}_nu001_T1_samples1200.pt").numpy()
+    # data2 = torch.load(f"N{N2}_nu001_T1_samples1200.pt").numpy()
 
-    with fd.CheckpointFile(f"../meshes/N{N1}.h5", "r") as file:
-        fs1 = fd.FunctionSpace(file.load_mesh(), "CG", 1)
+    # with fd.CheckpointFile(f"../meshes/N{N1}.h5", "r") as file:
+    #     fs1 = fd.FunctionSpace(file.load_mesh(), "CG", 1)
 
-    with fd.CheckpointFile(f"../meshes/N{N2}.h5", "r") as file:
-        fs2 = fd.FunctionSpace(file.load_mesh(), "CG", 1)
+    # with fd.CheckpointFile(f"../meshes/N{N2}.h5", "r") as file:
+    #     fs2 = fd.FunctionSpace(file.load_mesh(), "CG", 1)
 
-    check_downsample(fs1, data1, fs2, data2)
+    # check_downsample(fs1, data1, fs2, data2)

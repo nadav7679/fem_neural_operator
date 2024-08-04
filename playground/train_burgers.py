@@ -4,13 +4,13 @@ import firedrake as fd
 
 from classes import *
 
-device = torch.device("cuda:3") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
 print(device)
 N = 8192
-M, D, depth = 8, 20, 3
+M, D, depth = 16, 64, 4
 
-for M in [2 ** j for j in range(3, 10)]:
-    for D in [i * 10 for i in range(1, 7)]:
-        print(f"Training M={M}, D={D}")
-        model = BurgersModel(N, M, D, depth, 1, "fourier", device=device)
-        model.train(f"data/burgers/samples/N{N}_nu001_T1_samples1200.pt", 500, device=device)
+N_domain = [64, 128, 512, 1024, 2048, 4096, 8192]
+for i, N in enumerate(N_domain):
+    print(f"Training N={N}")
+    model = BurgersModel(N, M, D, depth, 1, "fourier", device=device)
+    model.train(f"data/burgers/samples/N{N}_nu001_T1_samples1200.pt", 500, lr=0.001, device=device)

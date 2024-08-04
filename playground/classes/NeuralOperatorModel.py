@@ -55,9 +55,10 @@ class NeuralOperatorModel(ABC):
         grid = torch.linspace(0, self.L, self.dof_count, device=device)
         trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
         testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
-
-        mse_loss = nn.MSELoss(reduction="sum")
-        loss = lambda x, y: mse_loss(x, y) / (self.N * len(x))  # Sum of differences, times step size, divide by batch size
+        
+        mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
+        # mse_loss = nn.MSELoss(reduction="sum")
+        # loss = lambda x, y: mse_loss(x, y) / (self.N * x.shape[0])  # Sum of differences, times step size, divide by batch size
 
         optimizer = torch.optim.Adam(self.network.parameters(), lr=lr) if optimizer is None else optimizer
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5) if scheduler is None else scheduler
@@ -66,7 +67,7 @@ class NeuralOperatorModel(ABC):
             self,
             trainset,
             testset,
-            loss,
+            mean_rel_l2_loss,
             optimizer,
             scheduler,
             max_epoch=max_epoch
@@ -126,7 +127,7 @@ class NeuralOperatorModel(ABC):
 class BurgersModel(NeuralOperatorModel):
     network, param_num = None, None
 
-    def __init__(self, N, M, D, depth, T, projection_type, train_samples=1000, device="cuda", dtype=torch.float64):
+    def __init__(self, N, M, D, depth, T, projection_type, train_samples=1000, device="cuda", dtype=torch.float32):
         super().__init__(N, 1, projection_type, "burgers", "CG1", train_samples)
         
         self.T = T
@@ -163,7 +164,7 @@ class KSModel(NeuralOperatorModel):
     network, param_num = None, None
 
     def __init__(self, N, M, D, depth, T, projection_type, finite_element_family, train_samples=1000, device="cuda",
-                 dtype=torch.float64):
+                 dtype=torch.float32):
         super().__init__(N, 10, "fourier", "KS", finite_element_family, train_samples)
         
         self.T = T

@@ -69,14 +69,37 @@ class ProjectionCoefficient:
         self.coeff = torch.zeros((2 * self.M + 1, function_space.dof_count),
                                  dtype=torch.float64)  # Zero mode and cos, sin for each mode
         for i in range(self.M + 1):
+            mode_i = fd.Function(function_space)
             if i == 0:
                 self.coeff[i] += fd.assemble(v / self.L * fd.dx).dat.data
+                # self.coeff[i] += mode_i.interpolate(1/self.L).dat.data
+
                 continue
 
-            self.coeff[2 * i - 1] += fd.assemble(2 / self.L * fd.sin(i * 2 * fd.pi * x / self.L) * v * fd.dx).dat.data
-            self.coeff[2 * i] += fd.assemble(2 / self.L * fd.cos(i * 2 * fd.pi * x / self.L) * v * fd.dx).dat.data
+            self.coeff[2 * i - 1] += fd.assemble(2/self.L * fd.sin(i * 2 * fd.pi * x / self.L) * v * fd.dx).dat.data
+            self.coeff[2 * i] += fd.assemble(2/self.L * fd.cos(i * 2 * fd.pi * x / self.L) * v * fd.dx).dat.data
+            
+    def _interpolate_fourier(self):
+        degree = 3 if self.finite_element_family in ["CG3", "HER"] else 1
+        family = "CG" if self.finite_element_family in ["CG1", "CG3"] else self.finite_element_family
 
-    def _test_fourier(self):
+        function_space = fd.FunctionSpace(self.mesh, family, degree)
+        x = fd.SpatialCoordinate(self.mesh)[0]
+        
+        self.functions = torch.zeros((2 * self.M + 1, function_space.dof_count),
+                    dtype=torch.float64)  # Zero mode and cos, sin for each mode
+
+        
+        for i in range(self.M + 1):
+            if i == 0:
+                self.functions[i, :] = torch.tensor(fd.Function(function_space).interpolate(1).dat.data)
+                continue
+
+            self.functions[2 * i -1, :] = torch.tensor(fd.Function(function_space).interpolate(fd.sin(i * 2 * fd.pi * x)).dat.data)
+            self.functions[2 * i, :] = torch.tensor(fd.Function(function_space).interpolate(fd.cos(i * 2 * fd.pi * x)).dat.data)
+
+
+    def _test_fourier_coeff(self):
         """
         Test the Fourier coefficients to ensure correctness. Testing that the integral vanishes for modes above 0,
         and integral is unity for mode 0.
@@ -91,7 +114,7 @@ class ProjectionCoefficient:
             else:
                 assert abs(torch.sum(self.coeff[i])) < 10E-15
 
-    def calculate(self, save_filename=None):
+    def calculate(self, save_filename=None, dtype=torch.float32):
         """
         Calculate the projection coefficients based on the specified projection_type. Note that the resulting matrix's
         size for fourier is 2*M+1.
@@ -104,8 +127,11 @@ class ProjectionCoefficient:
         """
         if self.projection_type == "fourier":
             self._calculate_fourier()
-            self._test_fourier()
-            self.coeff = self.coeff.to(device=self.device, dtype=torch.float32)
+            self._test_fourier_coeff()
+            self.coeff = self.coeff.to(device=self.device, dtype=dtype)
+            self._interpolate_fourier()
+            self.functions = self.functions.to(device=self.device, dtype=dtype)
+
 
         else:
             raise ValueError("Only 'fourier' projection_type is supported")
