@@ -27,22 +27,33 @@ class NeuralOperatorLayer(nn.Module):
         """
         super().__init__()
 
+        self.M = 2 * M + 1
+        self.D = D
+
         self.coeff = projection.coeff
         self.coeff_T = projection.coeff.T
 
+        self.functions = projection.functions
+        
         # Linear matrix multiplication that mixes up the channels (W operator), also called MLP. It includes the bias.
         self.linear = nn.Conv1d(D, D, kernel_size=1, device=device)
+        # with torch.no_grad():
+        #     self.linear.weight.data /= N
+        #     self.linear.bias.data /= N
 
-        self.weights = nn.Parameter(torch.rand(2*M + 1, D, D, requires_grad=True, device=device))  # MxDxD parameters
 
+        weights = torch.zeros(2 * M + 1, D, D, requires_grad=True, device=device) # MxDxD parameters
+        nn.init.xavier_uniform_(weights)
+        self.weights = nn.Parameter(weights)
+        
     def forward(self, u):
         wu = self.linear(u)
-        s = torch.einsum("mji, bim, mn -> bjn", self.weights, u @ self.coeff_T, self.coeff)
+        s = torch.einsum("mdi, bim, mk  -> bdk", self.weights, u @ self.coeff_T, self.functions)
 
         return functional.gelu(wu + s)
 
 
-class NonlocalNeuralOperator(nn.Module):
+class NeuralOperatorNetwork(nn.Module):
     def __init__(
             self,
             M: int,
@@ -100,6 +111,6 @@ if __name__ == "__main__":
 
     u = torch.randn((batchsize, 2, N), device=device)  # Unsqueeze to add channel dimension
 
-    model = NonlocalNeuralOperator(M, D, 3, projection, device)
+    model = NeuralOperatorNetwork(M, D, 3, projection, device)
     u = model(u)
     print(u, u.shape)
