@@ -7,7 +7,7 @@ import torch
 from burgers import BurgersDataset
 from classes import *
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 def average_coefficient_loss(
@@ -29,6 +29,7 @@ def average_coefficient_loss(
 
     losses = []
     for model in models:
+
         prediction = model.network(dataset[:][0])
         losses.append(mean_rel_l2_loss(dataset[:][1], prediction))
 
@@ -72,26 +73,25 @@ def load_models(config, D_arr):
     """
     global device
 
+    samples = (torch.load(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt")
+                .unsqueeze(2).to(device=device, dtype=torch.float32))
+    grid = torch.linspace(0, 1, config['N'], device=device)
+    dataset = BurgersDataset(samples, grid)
+
     models = []
-    datasets = []
     for D in D_arr:
         config["D"] = D
         filename = f"data/burgers/models/{config['projection_type']}/N{config['N']}/T{config['T']}" \
                    f"/D{config['D']}_M{config['M']}_samples{config['train_samples']}_epoch{config['epoch']}.pt"
 
-        samples = (torch.load(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt")
-                   .unsqueeze(2).to(device=device, dtype=torch.float32))
-        grid = torch.linspace(0, 1, config['N'], device=device)
-        dataset = BurgersDataset(samples, grid)
 
         models.append(BurgersModel.load(filename, config["N"], config["T"], device))
-        datasets.append(dataset[config["train_samples"]:])
 
-    return models, datasets
+    return models, dataset[config["train_samples"]:]
 
 
 if __name__ == "__main__":
-    D_arr = torch.arange(10, 31, 10).to(dtype=torch.int)
+    D_arr = torch.arange(10, 125, 5).to(dtype=torch.int)
     print(D_arr)
 
     config = {
@@ -101,21 +101,21 @@ if __name__ == "__main__":
         "T": 1,
         "projection_type": "fourier",
         "train_samples": 1000,
-        "epoch": 5,
+        "epoch": 500,
     }
 
-    for M in [2]:
+    for M in [0, 2, 4, 8, 16, 32, 64]:
         config["M"] = M
         train_models(config, D_arr)
-        losses = average_coefficient_loss(*load_models(config, D_arr))
-        plt.plot(D_arr, losses, label=f"M={config['M']}")
+        # losses = average_coefficient_loss(*load_models(config, D_arr))
+        # plt.plot(D_arr, losses, label=f"M={config['M']}")
 
     # for d, loss, loss_fd, param in zip(D_arr, losses, losses_fd, parameters):
     #     print(f"d: {d:03} | Parameters: {param:06} | Average loss: {loss:.04} | Firedrake loss: {loss_fd:.04}")
 
-    plt.title(f"MSE average loss vs D N={config['N']}")
-    plt.xlabel("D - channels")
-    plt.yscale('log')
-    plt.grid()
-    plt.legend()
-    plt.show()
+    # plt.title(f"MSE average loss vs D N={config['N']}")
+    # plt.xlabel("D - channels")
+    # plt.yscale('log')
+    # plt.grid()
+    # plt.legend()
+    # plt.show()

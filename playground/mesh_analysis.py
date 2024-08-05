@@ -7,7 +7,7 @@ import torch.nn as nn
 from burgers import *
 from classes import *
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 def train_models(config, N_arr):
@@ -106,7 +106,7 @@ def average_firedrake_loss(
         List[float]: List of average losses for each model-dataset pair.
     """
     losses = []
-    for model, dataset, N, in zip(models, datasets):
+    for model, dataset, in zip(models, datasets):
         with fd.CheckpointFile(f"data/burgers/meshes/N{model.N}.h5", "r") as file:
             function_space = fd.FunctionSpace(file.load_mesh(), "CG", 1)
 
@@ -128,7 +128,7 @@ def average_firedrake_loss(
 
 
 if __name__ == "__main__":
-    N_arr = torch.Tensor([2 ** i for i in range(6, 9)]).to(dtype=torch.int)
+    N_arr = torch.Tensor([2 ** i for i in range(6, 14)]).to(dtype=torch.int)
     config = {
         "M": 16,
         "D": 64,
