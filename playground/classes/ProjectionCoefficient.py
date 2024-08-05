@@ -137,7 +137,8 @@ class ProjectionCoefficient:
             raise ValueError("Only 'fourier' projection_type is supported")
 
         if save_filename is not None:
-            torch.save(self.coeff, save_filename)
+            torch.save({"coeff": self.coeff, "functions": self.functions}, save_filename)
+
 
     @staticmethod
     def load(mesh, equation_name, N, L, M, finite_element_family, projection_type, device='cpu'):
@@ -155,7 +156,9 @@ class ProjectionCoefficient:
 
         proj = ProjectionCoefficient(mesh, N, L, M, finite_element_family, projection_type, device)
         path = f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt"
-        proj.coeff = torch.load(path).to(device=device)
+        data = torch.load(path)
+        proj.coeff, proj.functions = data["coeff"].to(device=device), data["functions"].to(device=device)
+        
         return proj
 
 
