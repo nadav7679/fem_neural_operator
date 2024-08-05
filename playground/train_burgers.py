@@ -9,7 +9,7 @@ print(device)
 N = 8192
 M, D, depth = 16, 64, 4
 
-N_domain = [256, 2048, 4096, 8192]
+N_domain = [8192]
 for i, N in enumerate(N_domain):
     print(f"Training N={N}")
     model = BurgersModel(N, M, D, depth, 1, "fourier", device=device)
