@@ -18,7 +18,6 @@ def train_models(config, mode_arr):
         config (dict): Configuration dictionary containing model and training parameters.
         mode_arr (List[int]): List of mode values for training.
     """
-    global device
 
     for M in mode_arr:
         config["M"] = M
@@ -100,12 +99,10 @@ def average_firedrake_loss(
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     config = {
-        "D": 16,
+        "D": 64,
         "N": 4096,
-        "depth": 3,
+        "depth": 4,
         "T": 1,
         "projection_type": "fourier",
         "loss_type": "MSE",
@@ -113,7 +110,7 @@ if __name__ == "__main__":
         "epoch": 500,
     }
 
-    mode_arr = [i for i in range(2, 27, 2)]
+    mode_arr = [i for i in range(0, 27, 2)]
     train_models(config, mode_arr)
 
     losses = average_firedrake_loss(*load_models(config, mode_arr))
