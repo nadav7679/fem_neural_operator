@@ -7,126 +7,31 @@ import torch.nn as nn
 from burgers import *
 from classes import *
 
-
-def average_coefficient_loss(
-        models: List[NeuralOperatorModel],
-        datasets: List[BurgersDataset],
-        h_arr: List[float],
-        loss_type: str = "MSE"
-) -> List[torch.Tensor]:
-    """
-    Calculate the average loss using coefficient approximation (i.e. only using PyTorch)
-    for a list of models and corresponding datasets.
-
-    Args:
-        models (List[NeuralOperatorModel]): List of models to evaluate.
-        datasets (List[BurgersDataset]): List of datasets to evaluate on.
-        h_arr (List[float]): List of the mesh sizes, h=1/nx, corresponding to each dataset.
-        loss_type (str, optional): Type of loss to use ("MSE" or "L1"). Defaults to "MSE".
-
-    Returns:
-        List[torch.Tensor]: List of average losses for each model-dataset pair.
-    """
-    loss_func = nn.MSELoss(reduction='sum') if loss_type == "MSE" else nn.L1Loss(reduction='sum')
-
-    losses = []
-    for model, dataset, h in zip(models, datasets, h_arr):
-        target = dataset[:][1]
-        prediction = model.network(dataset[:][0])
-        losses.append(h / len(target) * loss_func(target, prediction))
-
-    return losses
-
-
-def average_firedrake_loss(
-        models: List[NeuralOperatorModel],
-        datasets: List[BurgersDataset],
-        N_arr: List[int],
-        loss_type: str = "MSE"
-) -> List[float]:
-    """
-    Calculate the average loss using Firedrake's errornorm for a list of models and datasets.
-
-    Args:
-        models (List[NeuralOperatorModel]): List of models to evaluate.
-        datasets (List[BurgersDataset]): List of datasets to evaluate on.
-        N_arr (List[int]): List of grid resolutions corresponding to each dataset.
-        loss_type (str, optional): Type of loss to use ("MSE" or "L1"). Defaults to "MSE".
-
-    Returns:
-        List[float]: List of average losses for each model-dataset pair.
-    """
-    power = 2 if loss_type == "MSE" else 1
-    loss_type = "L2" if loss_type == "MSE" else loss_type
-
-    losses = []
-    for model, dataset, N, in zip(models, datasets, N_arr):
-        with fd.CheckpointFile(f"data/meshes/N{N}.h5", "r") as file:
-            function_space = fd.FunctionSpace(file.load_mesh(), "CG", 1)
-
-        targets = dataset[:][1].squeeze(1).detach().cpu().numpy()
-        predictions = model.network(dataset[:][0]).squeeze(1).detach().cpu().numpy()
-
-        loss = 0
-        for target, predict in zip(targets, predictions):
-            loss += fd.errornorm(
-                fd.Function(function_space, val=target),
-                fd.Function(function_space, val=predict),
-                loss_type
-            ) ** power
-
-        losses.append(loss / len(targets))
-
-    return losses
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_models(config, N_arr):
     """
-    Train models based on the given configuration and grid resolutions.
+    Train models based on the given configuration and list of mode values.
 
     Args:
         config (dict): Configuration dictionary containing model and training parameters.
-        N_arr (List[int]): List of grid resolutions for training.
+        N_arr (List[int]): List of N values for training.
     """
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    global device
 
     for N in N_arr:
         config["N"] = N
-
-        samples = torch.load(f"data/samples/N{N}_samples1000.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
-        with fd.CheckpointFile(f"data/meshes/N{N}.h5", "r") as file:
-            mesh = file.load_mesh()
-
-        projection = ProjectionCoefficient(mesh, config["projection_type"], config["M"], device)
-        projection.calculate()
-
-        network = NonlocalNeuralOperator(
-            config["M"],
-            config["D"],
-            config["depth"],
-            projection,
-            device
-        )
-        model = NeuralOperatorModel(network, train_samples=int(0.8 * samples.shape[0]))
-
-        grid = torch.linspace(0, 1, N, device=device)
-        trainset = BurgersDataset(samples[:int(0.8 * samples.shape[0])], grid)
-        testset = BurgersDataset(samples[int(0.8 * samples.shape[0]):], grid)
-
-        lr = 0.01
-        optimizer = torch.optim.Adam(network.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100, gamma=0.5)
-        network_trainer = NeuralNetworkTrainer(
-            model,
-            trainset,
-            testset,
-            optimizer,
-            scheduler,
-            max_epoch=500
-        )
-
-        network_trainer.train_me()
+        model = BurgersModel(config["N"],
+                             config["M"],
+                             config["D"],
+                             config["depth"],
+                             config["T"],
+                             config["projection_type"],
+                             device=device)
+        print(f"Training N={N}, D={config['D']} with param={model.param_num}")
+        model.train(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt", config['epoch'],
+                    lr=0.001, device=device)
 
 
 def load_models(config, N_arr):
@@ -140,45 +45,105 @@ def load_models(config, N_arr):
     Returns:
         Tuple[List[NeuralOperatorModel], List[BurgersDataset]]: List of loaded models and corresponding datasets.
     """
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    global device
 
     models = []
     datasets = []
     for N in N_arr:
-        filename = f"data/models/{config['projection_type']}/N{N}" \
-                   f"/{config['loss_type']}/D{config['D']}_M{config['M']}" \
-                   f"_samples{config['train_samples']}_epoch{config['epoch']}.pt"
+        config["N"] = N
+        filename = f"data/burgers/models/{config['projection_type']}/N{config['N']}/T{config['T']}" \
+                   f"/D{config['D']}_M{config['M']}_samples{config['train_samples']}_epoch{config['epoch']}.pt"
 
-        samples = torch.load(f"data/samples/N{N}_samples1000.pt").unsqueeze(2).to(device=device, dtype=torch.float32)
-        grid = torch.linspace(0, 1, N, device=device)
+        samples = (torch.load(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt")
+                   .unsqueeze(2).to(device=device, dtype=torch.float32))
+        grid = torch.linspace(0, 1, config['N'], device=device)
         dataset = BurgersDataset(samples, grid)
 
-        datasets.append(dataset[int(0.8 * len(dataset)):])  # Cutting off the train data
-        models.append(NeuralOperatorModel.load(filename, device))
+        models.append(BurgersModel.load(filename, config["N"], config["T"], device))
+        datasets.append(dataset[config["train_samples"]:])
 
     return models, datasets
 
 
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def average_coefficient_loss(
+        models: List[BurgersModel],
+        datasets: List[BurgersDataset],
+) -> List[torch.Tensor]:
+    """
+    Calculate the average loss using coefficient approximation (i.e. only using PyTorch)
+    for a list of models and corresponding datasets.
 
-    N_arr = torch.Tensor([64, 128, 256, 512]).to(dtype=torch.int)
+    Args:
+        models (List[NeuralOperatorModel]): List of models to evaluate.
+        datasets (List[BurgersDataset]): List of datasets to evaluate on.
+
+    Returns:
+        List[torch.Tensor]: List of average losses for each model-dataset pair.
+    """
+    mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1) / torch.norm(y, 2, dim=-1))
+
+    losses = []
+    for model, dataset in zip(models, datasets):
+        target = dataset[:][1]
+        prediction = model.network(dataset[:][0])
+        losses.append(mean_rel_l2_loss(target, prediction))
+
+    return losses
+
+
+def average_firedrake_loss(
+        models: List[BurgersModel],
+        datasets: List[BurgersDataset],
+) -> List[float]:
+    """
+    Calculate the average loss using Firedrake's errornorm for a list of models and datasets.
+
+    Args:
+        models (List[NeuralOperatorModel]): List of models to evaluate.
+        datasets (List[BurgersDataset]): List of datasets to evaluate on.
+
+    Returns:
+        List[float]: List of average losses for each model-dataset pair.
+    """
+    losses = []
+    for model, dataset, N, in zip(models, datasets):
+        with fd.CheckpointFile(f"data/burgers/meshes/N{model.N}.h5", "r") as file:
+            function_space = fd.FunctionSpace(file.load_mesh(), "CG", 1)
+
+        targets = dataset[:][1].squeeze(1).detach().cpu().numpy()
+        predictions = model.network(dataset[:][0]).squeeze(1).detach().cpu().numpy()
+
+        loss = 0
+        for target, predict in zip(targets, predictions):
+            target_func = fd.Function(function_space, val=target)
+            loss += fd.errornorm(
+                target_func,
+                fd.Function(function_space, val=predict),
+                "L2"
+            ) / fd.norm(target_func)
+
+        losses.append(loss / len(targets))
+
+    return losses
+
+
+if __name__ == "__main__":
+    N_arr = torch.Tensor([2 ** i for i in range(6, 9)]).to(dtype=torch.int)
     config = {
-        "M": 8,
-        "D": 10,
-        "depth": 3,
+        "M": 16,
+        "D": 64,
+        "depth": 4,
+        "T": 1,
         "projection_type": "fourier",
-        "loss_type": "MSE",
-        "train_samples": 800,
+        "train_samples": 1000,
         "epoch": 500,
     }
 
-    train_models(config, N_arr)
+    # train_models(config, N_arr)
     models, datasets = load_models(config, N_arr)
 
-    losses_coeff = average_coefficient_loss(models, datasets, 1 / N_arr, config["loss_type"])
-    losses_fd = average_firedrake_loss(models, datasets, N_arr, config["loss_type"])
+    losses_coeff = average_coefficient_loss(models, datasets)
+    losses_fd = average_firedrake_loss(models, datasets)
 
     for model, N, loss_fd, loss_coeff in zip(models, N_arr, losses_fd, losses_coeff):
         print(
