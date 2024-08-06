@@ -156,7 +156,7 @@ class ProjectionCoefficient:
 
         proj = ProjectionCoefficient(mesh, N, L, M, finite_element_family, projection_type, device)
         path = f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt"
-        data = torch.load(path)
+        data = torch.load(path, map_location=device)
         proj.coeff, proj.functions = data["coeff"].to(device=device), data["functions"].to(device=device)
         
         return proj

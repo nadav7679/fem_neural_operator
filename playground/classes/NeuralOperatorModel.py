@@ -146,7 +146,7 @@ class BurgersModel(NeuralOperatorModel):
         
     @staticmethod
     def load(filename, N, T, device):
-        state_dict, config = torch.load(filename).values()
+        state_dict, config = torch.load(filename, map_location=device).values()
 
         with fd.CheckpointFile(f"data/burgers/meshes/N{N}.h5", "r") as f:
             mesh = f.load_mesh()
@@ -185,7 +185,7 @@ class KSModel(NeuralOperatorModel):
     
     @staticmethod
     def load(filename, N, T, device):
-        state_dict, config = torch.load(filename).values()
+        state_dict, config = torch.load(filename, map_location=device).values()
 
         with fd.CheckpointFile(f"data/KS/meshes/N{N}.h5", "r") as f:
             mesh = f.load_mesh()
