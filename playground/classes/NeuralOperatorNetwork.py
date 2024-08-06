@@ -32,8 +32,8 @@ class NeuralOperatorLayer(nn.Module):
 
         self.coeff = projection.coeff
         self.coeff_T = projection.coeff.T
-
         self.functions = projection.functions
+        self.activation = functional.gelu
         
         # Linear matrix multiplication that mixes up the channels (W operator), also called MLP. It includes the bias.
         self.linear = nn.Conv1d(D, D, kernel_size=1, device=device)
@@ -50,7 +50,7 @@ class NeuralOperatorLayer(nn.Module):
         wu = self.linear(u)
         s = torch.einsum("mdi, bim, mk  -> bdk", self.weights, u @ self.coeff_T, self.functions)
 
-        return functional.gelu(wu + s)
+        return self.activation(wu + s)
 
 
 class NeuralOperatorNetwork(nn.Module):
