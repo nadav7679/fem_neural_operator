@@ -111,8 +111,9 @@ if __name__ == "__main__":
     }
 
     mode_arr = [i for i in range(0, 27, 2)]
-    train_models(config, mode_arr)
+    # train_models(config, mode_arr)
 
+    plt.figure(figsize=(8, 6))
     losses = average_firedrake_loss(*load_models(config, mode_arr))
     plt.plot(mode_arr, losses)
     plt.yscale("log")
@@ -121,4 +122,5 @@ if __name__ == "__main__":
     plt.ylabel("RelL2")
     plt.grid()
     plt.legend()
-    plt.show()
+    plt.savefig("mode_analysis")
+    # plt.show()

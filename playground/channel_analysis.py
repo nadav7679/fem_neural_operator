@@ -7,7 +7,42 @@ import torch
 from burgers import BurgersDataset
 from classes import *
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+
+def average_firedrake_loss(
+        models: List[BurgersModel],
+        dataset: BurgersDataset
+) -> List[float]:
+    """
+    Calculate the average loss using Firedrake's errornorm for a list of models on a given dataset.
+
+    Args:
+        models (List[NeuralOperatorModel]): List of models to evaluate.
+        dataset (BurgersDataset): Dataset to evaluate on.
+
+    Returns:
+        List[float]: List of average losses for each model.
+    """
+    targets = dataset[:][1].squeeze(1).detach().cpu().numpy()
+
+    with fd.CheckpointFile(f"data/burgers/meshes/N{models[0].N}.h5", "r") as file:
+        function_space = fd.FunctionSpace(file.load_mesh(), "CG", 1)
+
+    losses = []
+    for model in models:
+        predictions = model.network(dataset[:][0]).squeeze(1).detach().cpu().numpy()
+
+        loss = 0
+        for target, predict in zip(targets, predictions):
+            target_func = fd.Function(function_space, val=target)
+            loss += fd.errornorm(
+                target_func,
+                fd.Function(function_space, val=predict)
+            ) / fd.norm(target_func)
+
+        losses.append(loss / len(targets))
+
+    return losses
 
 
 def average_coefficient_loss(
@@ -29,7 +64,6 @@ def average_coefficient_loss(
 
     losses = []
     for model in models:
-
         prediction = model.network(dataset[:][0])
         losses.append(mean_rel_l2_loss(dataset[:][1], prediction))
 
@@ -92,8 +126,6 @@ def load_models(config, D_arr):
 
 if __name__ == "__main__":
     D_arr = torch.arange(10, 125, 5).to(dtype=torch.int)
-    print(D_arr)
-
     config = {
         "N": 4096,
         "M": 16,
@@ -104,18 +136,25 @@ if __name__ == "__main__":
         "epoch": 500,
     }
 
+    plt.figure(figsize=(8, 6))
+
     for M in [0, 2, 4, 8, 16, 32, 64]:
         config["M"] = M
-        train_models(config, D_arr)
+        print(f"Calculating M={M}")
+        losses = average_firedrake_loss(*load_models(config, D_arr))
+        print(losses)
+        
+        # train_models(config, D_arr)
         # losses = average_coefficient_loss(*load_models(config, D_arr))
-        # plt.plot(D_arr, losses, label=f"M={config['M']}")
+        plt.plot(D_arr, losses, label=f"M={config['M']}")
 
     # for d, loss, loss_fd, param in zip(D_arr, losses, losses_fd, parameters):
     #     print(f"d: {d:03} | Parameters: {param:06} | Average loss: {loss:.04} | Firedrake loss: {loss_fd:.04}")
 
-    # plt.title(f"MSE average loss vs D N={config['N']}")
-    # plt.xlabel("D - channels")
-    # plt.yscale('log')
-    # plt.grid()
-    # plt.legend()
-    # plt.show()
+    plt.title(f"RelL2 loss vs D N={config['N']}")
+    plt.xlabel("D - channels")
+    plt.yscale('log')
+    plt.grid()
+    plt.legend()
+    plt.savefig("channel_analysis")
+    plt.show()
