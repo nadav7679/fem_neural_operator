@@ -73,7 +73,7 @@ class NeuralOperatorModel(ABC):
             max_epoch=max_epoch
         )
 
-        network_trainer.train_me()
+        return network_trainer.train_me()
 
     @property
     @abstractmethod
