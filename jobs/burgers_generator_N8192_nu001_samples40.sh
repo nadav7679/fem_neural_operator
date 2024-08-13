@@ -18,5 +18,5 @@ seed=${BATCH} # Environment variable
 batch=${BATCH}
 
 
-python3 playground/burgers/burgers_generator.py ${project_dir} ${nu} ${N} ${samples} ${seed} ${batch}
+python3 fem_neural_operator/burgers/burgers_generator.py ${project_dir} ${nu} ${N} ${samples} ${seed} ${batch}
 

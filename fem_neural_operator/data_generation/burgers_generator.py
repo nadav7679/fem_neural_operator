@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # with CheckpointFile(f"/tmp/np923/N{nx}.h5", "w") as f:
     #     f.save_mesh(mesh)
     
-    with CheckpointFile(f"{args.project_dir}/playground/data/meshes/N{args.N}.h5", "r") as f:
+    with CheckpointFile(f"{args.project_dir}/fem_neural_operator/data/meshes/N{args.N}.h5", "r") as f:
         mesh = f.load_mesh()
 
     cg_space = FunctionSpace(mesh, "CG", degree=1)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         data[i, 0] = torch.tensor(gf.dat.data)
         data[i, 1] = torch.tensor(sol.dat.data)
 
-    torch.save(data, f"{args.project_dir}/playground/data/samples/N{args.N}_nu{args.nu}_samples{args.samples}_batch{args.batch}.pt")
+    torch.save(data, f"{args.project_dir}/fem_neural_operator/data/samples/N{args.N}_nu{args.nu}_samples{args.samples}_batch{args.batch}.pt")
     
     
     # -------- Test BurgersSolver ----------#

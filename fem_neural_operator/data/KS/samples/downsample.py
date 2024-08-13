@@ -27,13 +27,13 @@ def downsample(data, mesh1, mesh2, N, T):
 
 
 if __name__ == "__main__":
-    with CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/playground/data/KS/meshes/N4096.h5", "r") as f:
+    with CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N4096.h5", "r") as f:
         mesh1 = f.load_mesh()
 
     for T in ["02", "03", "04", "05"]:
-        data = torch.load(f"/home/clustor2/ma/n/np923/fem_neural_operator/playground/data/KS/samples/N4096_HER_nu0029_T{T}_samples1200.pt").numpy()
+        data = torch.load(f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/samples/N4096_HER_nu0029_T{T}_samples1200.pt").numpy()
         for N in [64, 128, 256, 512, 1024, 2048]:
-            with CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/playground/data/KS/meshes/N{N}.h5", "r") as f:
+            with CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N{N}.h5", "r") as f:
                 mesh2 = f.load_mesh()
             print(f"Working on T={T}, N={N}")
             downsample(data, mesh1, mesh2, N, T)
