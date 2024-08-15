@@ -47,7 +47,7 @@ class NeuralOperatorModel(ABC):
         else:
             self.dof_count = N
 
-        with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
+        with fd.CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N{N}.h5", "r") as f:
             self.mesh = f.load_mesh()
 
     def train(self, data_path, max_epoch, lr=0.01, optimizer = None, scheduler=None, device="cuda"):
@@ -177,7 +177,7 @@ class KSModel(NeuralOperatorModel):
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, finite_element_family, projection_type,
                                                     device)
             self.projection.calculate(
-                f"data/KS/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
+                f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -187,8 +187,8 @@ class KSModel(NeuralOperatorModel):
     def load(filename, N, T, device):
         state_dict, config = torch.load(filename, map_location=device).values()
 
-        with fd.CheckpointFile(f"data/KS/meshes/N{N}.h5", "r") as f:
-            mesh = f.load_mesh()
+        # with fd.CheckpointFile(f"/home/clustor2/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N{N}.h5", "r") as f:
+        #     mesh = f.load_mesh()
             
             
         # projection = ProjectionCoefficient.load(mesh, equation_name, N, L, M, finite_element_space, "fourier", device=device)
