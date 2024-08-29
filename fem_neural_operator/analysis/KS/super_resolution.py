@@ -8,12 +8,12 @@ from classes import *
 device = torch.device("cuda:4" if torch.cuda.is_available() else "cpu")
 
 def super_resolution(N1, N2, D, M):
-    with fd.CheckpointFile(f"data/burgers/meshes/N{N2}.h5", "r") as file:
+    with fd.CheckpointFile(f"data/KS/meshes/N{N2}.h5", "r") as file:
         mesh = file.load_mesh()
     
     
-    model = BurgersModel.load(f"data/burgers/models/fourier/N{N1}/T1/D{D}_M{M}_samples1000_epoch500.pt", N1, "01", device)
-    projection = ProjectionCoefficient.load(mesh, "burgers", N2, 1, M, "CG1", "fourier", device)
+    model = KSModel.load(f"data/KS/models/fourier/N{N1}/T01/D{D}_M{M}_samples1000_epoch500.pt", N1, "01", device)
+    projection = ProjectionCoefficient.load(mesh, "KS", N2, model.L, M, "HER", "fourier", device)
     
     for projection_layer in model.network.layers:
         projection_layer.coeff = projection.coeff
@@ -21,12 +21,12 @@ def super_resolution(N1, N2, D, M):
         projection_layer.functions = projection.functions
     
     
-    data_path = f"data/burgers/samples/N{N2}_nu001_T1_samples1200.pt"
+    data_path = f"data/KS/samples/N{N2}_HER_nu0029_T01_samples1200.pt"
     
     samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
-    grid = torch.linspace(0, model.L, N2, device=device)
-    trainset = Dataset(torch.tensor(samples[:model.train_samples]), torch.tensor(grid))
-    testset = Dataset(torch.tensor(samples[model.train_samples:]), torch.tensor(grid))
+    grid = torch.linspace(0, model.L, 2 * N2, device=device)
+    trainset = KSDataset(N2, torch.tensor(samples[:model.train_samples]), torch.tensor(grid))
+    testset = KSDataset(N2, torch.tensor(samples[model.train_samples:]), torch.tensor(grid))
     
     mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
     
@@ -48,7 +48,7 @@ def super_resolution(N1, N2, D, M):
     
     
 
-N2_range = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
+N2_range = [64, 128, 256, 512, 1024, 2048, 4096]
 
 D = 64
 M = 16
@@ -64,10 +64,10 @@ for i in range(5):
     plt.plot(N2_range[i:], losses, label=f"N={N1} Model")
 
 plt.xscale("log", base=2)
-plt.title("Burgers Super-Resolution")
+plt.title("KS Super-Resolution")
 plt.grid()
-plt.ylabel("RelL2")
+plt.ylabel("RelH1")
 plt.xlabel("$N$ of test dataset")
 plt.legend()
 
-plt.savefig("Burgers Super-Resolution")
+plt.savefig("KS Super-Resolution")
