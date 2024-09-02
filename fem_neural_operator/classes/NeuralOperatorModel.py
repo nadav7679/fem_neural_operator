@@ -93,7 +93,7 @@ class NeuralOperatorModel(ABC):
         pass
 
     def save(self):
-        self.filename = f"data/{self.equation_name}/models/{self.projection_type}/N{self.N}" \
+        self.filename = f"data/{self.equation_name}/models/{self.finite_element_space}/{self.projection_type}/N{self.N}" \
                         f"/T{self.T}/D{self.network.D}_M{self.network.M}_samples{self.train_samples}_epoch{self.epoch}.pt"
 
         config = {
