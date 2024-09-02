@@ -7,7 +7,7 @@ import torch.nn as nn
 from .NeuralOperatorNetwork import NeuralOperatorNetwork
 from .ProjectionCoefficient import ProjectionCoefficient
 from .NetworkTrainer import NeuralNetworkTrainer
-from .Dataset import Dataset
+from .Dataset import Dataset, KSDataset
 
 
 class NeuralOperatorModel(ABC):
@@ -47,14 +47,21 @@ class NeuralOperatorModel(ABC):
         else:
             self.dof_count = N
 
-        with fd.CheckpointFile(f"data/{equation_name}/meshes/N{N}.h5", "r") as f:
+        with fd.CheckpointFile(f"/home/clustor/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N{N}.h5", "r") as f:
             self.mesh = f.load_mesh()
 
     def train(self, data_path, max_epoch, lr=0.01, optimizer = None, scheduler=None, device="cuda"):
         samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
         grid = torch.linspace(0, self.L, self.dof_count, device=device)
-        trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
-        testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+        
+        if self.equation_name == "KS": 
+            trainset = KSDataset(self.N, torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
+            testset = KSDataset(self.N, torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+        
+        else:
+            trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
+            testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+        
         
         mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
         # mse_loss = nn.MSELoss(reduction="sum")
@@ -148,7 +155,7 @@ class BurgersModel(NeuralOperatorModel):
     def load(filename, N, T, device):
         state_dict, config = torch.load(filename, map_location=device).values()
 
-        with fd.CheckpointFile(f"data/burgers/meshes/N{N}.h5", "r") as f:
+        with fd.CheckpointFile(f"/home/clustor/ma/n/np923/fem_neural_operator/fem_neural_operator/data/burgers/meshes/N{N}.h5", "r") as f:
             mesh = f.load_mesh()
                     
         
@@ -177,7 +184,7 @@ class KSModel(NeuralOperatorModel):
             self.projection = ProjectionCoefficient(self.mesh, N, self.L, M, finite_element_family, projection_type,
                                                     device)
             self.projection.calculate(
-                f"data/KS/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
+                f"/home/clustor/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt")
 
         self.network = NeuralOperatorNetwork(M, D, depth, self.projection, device)
         self.param_num = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
@@ -187,8 +194,8 @@ class KSModel(NeuralOperatorModel):
     def load(filename, N, T, device):
         state_dict, config = torch.load(filename, map_location=device).values()
 
-        with fd.CheckpointFile(f"data/KS/meshes/N{N}.h5", "r") as f:
-            mesh = f.load_mesh()
+        # with fd.CheckpointFile(f"/home/clustor/ma/n/np923/fem_neural_operator/fem_neural_operator/data/KS/meshes/N{N}.h5", "r") as f:
+        #     mesh = f.load_mesh()
             
             
         # projection = ProjectionCoefficient.load(mesh, equation_name, N, L, M, finite_element_space, "fourier", device=device)

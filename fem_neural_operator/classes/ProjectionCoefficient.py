@@ -89,14 +89,27 @@ class ProjectionCoefficient:
         self.functions = torch.zeros((2 * self.M + 1, function_space.dof_count),
                     dtype=torch.float64)  # Zero mode and cos, sin for each mode
 
-        
-        for i in range(self.M + 1):
-            if i == 0:
-                self.functions[i, :] = torch.tensor(fd.Function(function_space).interpolate(1).dat.data)
-                continue
+        if self.finite_element_family == "HER":
+            for i in range(self.M + 1):
+                if i == 0:
+                    self.functions[i, :] = torch.tensor(fd.Function(function_space).project(fd.Constant(1)).dat.data)
+                    continue
 
-            self.functions[2 * i -1, :] = torch.tensor(fd.Function(function_space).interpolate(fd.sin(i * 2 * fd.pi * x)).dat.data)
-            self.functions[2 * i, :] = torch.tensor(fd.Function(function_space).interpolate(fd.cos(i * 2 * fd.pi * x)).dat.data)
+                self.functions[2 * i -1, :] = torch.tensor(fd.Function(function_space).project(fd.sin(i * 2/self.L * fd.pi * x)).dat.data)
+                self.functions[2 * i, :] = torch.tensor(fd.Function(function_space).project(fd.cos(i * 2/self.L * fd.pi * x)).dat.data)
+                
+                self.functions[2 * i -1, 1::2] *= self.N/10  # N here is number of dof, so N grid is half that
+                self.functions[2 * i, 1::2] *= self.N/10
+
+        else:            
+                
+            for i in range(self.M + 1):
+                if i == 0:
+                    self.functions[i, :] = torch.tensor(fd.Function(function_space).interpolate(1).dat.data)
+                    continue
+
+                self.functions[2 * i -1, :] = torch.tensor(fd.Function(function_space).interpolate(fd.sin(i * 2/self.L * fd.pi * x)).dat.data)
+                self.functions[2 * i, :] = torch.tensor(fd.Function(function_space).interpolate(fd.cos(i * 2/self.L * fd.pi * x)).dat.data)
 
 
     def _test_fourier_coeff(self):
@@ -155,7 +168,8 @@ class ProjectionCoefficient:
         """
 
         proj = ProjectionCoefficient(mesh, N, L, M, finite_element_family, projection_type, device)
-        path = f"data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt"
+        
+        path = f"/home/clustor/ma/n/np923/fem_neural_operator/fem_neural_operator/data/{equation_name}/projection_coefficients/{finite_element_family}/{projection_type}/N{N}_M{M}.pt"
         data = torch.load(path, map_location=device)
         proj.coeff, proj.functions = data["coeff"].to(device=device), data["functions"].to(device=device)
         

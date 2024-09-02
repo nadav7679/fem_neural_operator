@@ -17,5 +17,5 @@ batch=${BATCH}
 T=0.1
 
 
-python3 playground/KS/KS_generator.py ${project_dir} ${N} ${T} ${samples} ${batch}
+python3 fem_neural_operator/KS/KS_generator.py ${project_dir} ${N} ${T} ${samples} ${batch}
 

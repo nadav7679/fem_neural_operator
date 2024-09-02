@@ -4,10 +4,9 @@ import firedrake as fd
 import torch
 import torch.nn as nn
 
-from burgers import *
 from classes import *
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 
 def train_models(config, N_arr):
@@ -43,7 +42,7 @@ def load_models(config, N_arr):
         N_arr (List[int]): List of grid resolutions for loading models.
 
     Returns:
-        Tuple[List[NeuralOperatorModel], List[BurgersDataset]]: List of loaded models and corresponding datasets.
+        Tuple[List[NeuralOperatorModel], List[Dataset]]: List of loaded models and corresponding datasets.
     """
     global device
 
@@ -57,7 +56,7 @@ def load_models(config, N_arr):
         samples = (torch.load(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt")
                    .unsqueeze(2).to(device=device, dtype=torch.float32))
         grid = torch.linspace(0, 1, config['N'], device=device)
-        dataset = BurgersDataset(samples, grid)
+        dataset = Dataset(samples, grid)
 
         models.append(BurgersModel.load(filename, config["N"], config["T"], device))
         datasets.append(dataset[config["train_samples"]:])
@@ -67,15 +66,15 @@ def load_models(config, N_arr):
 
 def average_coefficient_loss(
         models: List[BurgersModel],
-        datasets: List[BurgersDataset],
+        datasets: List[Dataset],
 ) -> List[torch.Tensor]:
     """
-    Calculate the average loss using coefficient approximation (i.e. only using PyTorch)
+    Calculate the average loss using coeffic../../ient approximation (i.e. only using PyTorch)
     for a list of models and corresponding datasets.
 
     Args:
         models (List[NeuralOperatorModel]): List of models to evaluate.
-        datasets (List[BurgersDataset]): List of datasets to evaluate on.
+        datasets (List[Dataset]): List of datasets to evaluate on.
 
     Returns:
         List[torch.Tensor]: List of average losses for each model-dataset pair.
@@ -83,24 +82,25 @@ def average_coefficient_loss(
     mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1) / torch.norm(y, 2, dim=-1))
 
     losses = []
-    for model, dataset in zip(models, datasets):
-        target = dataset[:][1]
-        prediction = model.network(dataset[:][0])
-        losses.append(mean_rel_l2_loss(target, prediction))
+    with torch.no_grad():
+        for model, dataset in zip(models, datasets):
+            target = dataset[:][1]
+            prediction = model.network(dataset[:][0])
+            losses.append(mean_rel_l2_loss(target, prediction))
 
     return losses
 
 
 def average_firedrake_loss(
         models: List[BurgersModel],
-        datasets: List[BurgersDataset],
+        datasets: List[Dataset],
 ) -> List[float]:
     """
     Calculate the average loss using Firedrake's errornorm for a list of models and datasets.
 
     Args:
         models (List[NeuralOperatorModel]): List of models to evaluate.
-        datasets (List[BurgersDataset]): List of datasets to evaluate on.
+        datasets (List[Dataset]): List of datasets to evaluate on.
 
     Returns:
         List[float]: List of average losses for each model-dataset pair.
@@ -140,11 +140,12 @@ if __name__ == "__main__":
     }
 
     # train_models(config, N_arr)
-    models, datasets = load_models(config, N_arr)
 
-    losses_coeff = average_coefficient_loss(models, datasets)
-    losses_fd = average_firedrake_loss(models, datasets)
+    for N in N_arr:
+        models, datasets = load_models(config, [N])
 
-    for model, N, loss_fd, loss_coeff in zip(models, N_arr, losses_fd, losses_coeff):
+        losses_coeff = average_coefficient_loss(models, datasets)
+        losses_fd = average_firedrake_loss(models, datasets)
+
         print(
-            f"nx: {N:03} | Average Firedrake loss: {loss_fd:.04} | Average coeff loss: {loss_coeff:.04} | Diff {loss_coeff - loss_fd:.04}")
+            f"nx: {N:03} | Average Firedrake loss: {losses_fd[0]:.04} | Average coeff loss: {losses_coeff[0]:.04} | Diff {abs(losses_coeff[0] - losses_fd[0]):.04}")

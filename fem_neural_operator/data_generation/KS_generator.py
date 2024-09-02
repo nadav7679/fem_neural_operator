@@ -105,11 +105,11 @@ if __name__ == "__main__":
 
     L = 10.
     
-    # with CheckpointFile(f"{args.project_dir}/playground/data/KS/meshes/N{args.N}.h5", "r") as f:
+    # with CheckpointFile(f"{args.project_dir}/fem_neural_operator/data/KS/meshes/N{args.N}.h5", "r") as f:
     #     mesh = f.load_mesh()
     
-    with CheckpointFile(f"{args.project_dir}/playground/data/KS/meshes/N{args.N}.h5", "r") as f:
+    with CheckpointFile(f"{args.project_dir}/fem_neural_operator/data/KS/meshes/N{args.N}.h5", "r") as f:
         mesh = f.load_mesh()
 
     data = KS_sample(mesh, args.nu, L, args.T, args.dt, args.samples)
-    torch.save(data, f"{args.project_dir}/playground/data/KS/samples/N{args.N}_nu{args.nu}_T{args.T}_samples{args.samples}_batch{args.batch}.pt")
+    torch.save(data, f"{args.project_dir}/fem_neural_operator/data/KS/samples/N{args.N}_nu{args.nu}_T{args.T}_samples{args.samples}_batch{args.batch}.pt")
