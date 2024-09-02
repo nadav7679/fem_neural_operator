@@ -7,7 +7,7 @@ import torch.nn as nn
 from .NeuralOperatorNetwork import NeuralOperatorNetwork
 from .ProjectionCoefficient import ProjectionCoefficient
 from .NetworkTrainer import NeuralNetworkTrainer
-from .Dataset import Dataset, KSDataset
+from .Dataset import Dataset, KSHerDataset
 
 
 class NeuralOperatorModel(ABC):
@@ -52,12 +52,20 @@ class NeuralOperatorModel(ABC):
 
     def train(self, data_path, max_epoch, lr=0.01, optimizer = None, scheduler=None, device="cuda"):
         samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
-        grid = torch.linspace(0, self.L, self.dof_count, device=device)
         
-        if self.equation_name == "KS": 
-            trainset = KSDataset(self.N, torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
-            testset = KSDataset(self.N, torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+        if self.finite_element_space == "CG3":
+            cg3 = fd.FunctionSpace(self.mesh, "CG", 3)
+            x = fd.assemble(fd.interpolate(fd.SpatialCoordinate(self.mesh)[0], cg3))
+            grid = torch.tensor(sorted(x.dat.data[:])).to(device=device, dtype=torch.float32)
         
+        else:
+            grid = torch.linspace(0, self.L, self.dof_count, device=device)
+        
+        
+        if self.finite_element_space == "HER": 
+            trainset = KSHerDataset(self.N, torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
+            testset = KSHerDataset(self.N, torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+                
         else:
             trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
             testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
