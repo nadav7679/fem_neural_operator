@@ -8,7 +8,7 @@ device = torch.device("cuda:5") if torch.cuda.is_available() else torch.device("
 print(device)
 M, D, depth = 16, 64, 4
 
-for N in [64]:
+for N in [128, 256]:
     for T in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15"]:
         model = KSModel(N, M, D, depth, T, "fourier", "CG3", device=device)
         
