@@ -68,7 +68,7 @@ class NeuralOperatorModel(ABC):
                 
         else:
             trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
-            testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+            testset = Dataset(torch.tensor(samples[1000:]), torch.tensor(grid))
         
         
         mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
@@ -167,7 +167,7 @@ class BurgersModel(NeuralOperatorModel):
             mesh = f.load_mesh()
                     
         
-        model = BurgersModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], device=device)
+        model = BurgersModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], config["train_samples"], device=device)
         model.network.load_state_dict(state_dict)
 
         return model

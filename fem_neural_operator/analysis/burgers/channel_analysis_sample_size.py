@@ -65,7 +65,7 @@ def average_coefficient_loss(
     with torch.no_grad():
         for model in models:
             prediction = model.network(dataset[:][0])
-            losses.append(mean_rel_l2_loss(dataset[:][1], prediction))
+            losses.append(mean_rel_l2_loss(dataset[:][1], prediction).cpu().numpy())
 
     return losses
 
@@ -88,6 +88,7 @@ def train_models(config, D_arr):
                              config["depth"],
                              config["T"],
                              config["projection_type"],
+                             config["train_samples"],
                              device=device)
         print(f"Training D={config['D']} with param={model.param_num}")
         model.train(f"data/burgers/samples/N{config['N']}_nu001_T{config['T']}_samples1200.pt", config['epoch'],
@@ -121,40 +122,38 @@ def load_models(config, D_arr):
 
         models.append(BurgersModel.load(filename, config["N"], config["T"], device))
 
-    return models, dataset[config["train_samples"]:]
+    return models, dataset[1000:]
 
 
 if __name__ == "__main__":
-    D_arr = torch.arange(10, 125, 5).to(dtype=torch.int)
+    D_arr = torch.arange(10, 125, 10).to(dtype=torch.int)
     config = {
         "N": 4096,
-        "M": 16,
+        "M": 8,
         "depth": 4,
         "T": 1,
         "projection_type": "fourier",
-        "train_samples": 1000,
         "epoch": 500,
     }
 
     plt.figure(figsize=(8, 6))
 
-    for M in [16]:
-        config["M"] = M
-        print(f"Calculating M={M}")
-        losses = average_coefficient_loss(*load_models(config, D_arr))
-        print(losses)
-        
+    for train_samples in [300, 700, 1000]:
+        config["train_samples"] = train_samples
         # train_models(config, D_arr)
+        losses = average_coefficient_loss(*load_models(config, D_arr))
+        
+        
         # losses = average_coefficient_loss(*load_models(config, D_arr))
-        plt.plot(D_arr, losses, label=f"M={config['M']}")
+        plt.plot(D_arr, losses, label=f"Train samples={train_samples}")
 
-    # for d, loss, loss_fd, param in zip(D_arr, losses, losses_fd, parameters):
-    #     print(f"d: {d:03} | Parameters: {param:06} | Average loss: {loss:.04} | Firedrake loss: {loss_fd:.04}")
+    # # for d, loss, loss_fd, param in zip(D_arr, losses, losses_fd, parameters):
+    # #     print(f"d: {d:03} | Parameters: {param:06} | Average loss: {loss:.04} | Firedrake loss: {loss_fd:.04}")
 
-    plt.title(f"RelL2 loss vs D N={config['N']}")
+    plt.title(f"RelL2 loss vs Channels $D$ - $N={config['N']}$")
     plt.xlabel("D - channels")
+    plt.ylabel("RelL2")
     plt.yscale('log')
     plt.grid()
     plt.legend()
-    plt.savefig("channel_analysis")
-    plt.show()
+    plt.savefig("channel_analysis_sample_size")
