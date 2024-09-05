@@ -16,7 +16,7 @@ class Dataset(Dataset):
         return self.inputs[index], self.targets[index]
     
 
-class KSDataset(Dataset):
+class KSHerDataset(Dataset):
     def __init__(self, N, data, grid):
         self.targets = data[:, 1, ...]
         data[:, :, :, 1::2] *= N/10

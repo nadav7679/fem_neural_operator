@@ -7,7 +7,7 @@ import torch.nn as nn
 from .NeuralOperatorNetwork import NeuralOperatorNetwork
 from .ProjectionCoefficient import ProjectionCoefficient
 from .NetworkTrainer import NeuralNetworkTrainer
-from .Dataset import Dataset, KSDataset
+from .Dataset import Dataset, KSHerDataset
 
 
 class NeuralOperatorModel(ABC):
@@ -52,15 +52,23 @@ class NeuralOperatorModel(ABC):
 
     def train(self, data_path, max_epoch, lr=0.01, optimizer = None, scheduler=None, device="cuda"):
         samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
-        grid = torch.linspace(0, self.L, self.dof_count, device=device)
         
-        if self.equation_name == "KS": 
-            trainset = KSDataset(self.N, torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
-            testset = KSDataset(self.N, torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+        if self.finite_element_space == "CG3":
+            cg3 = fd.FunctionSpace(self.mesh, "CG", 3)
+            x = fd.assemble(fd.interpolate(fd.SpatialCoordinate(self.mesh)[0], cg3))
+            grid = torch.tensor(sorted(x.dat.data[:])).to(device=device, dtype=torch.float32)
         
         else:
+            grid = torch.linspace(0, self.L, self.dof_count, device=device)
+        
+        
+        if self.finite_element_space == "HER": 
+            trainset = KSHerDataset(self.N, torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
+            testset = KSHerDataset(self.N, torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+                
+        else:
             trainset = Dataset(torch.tensor(samples[:self.train_samples]), torch.tensor(grid))
-            testset = Dataset(torch.tensor(samples[self.train_samples:]), torch.tensor(grid))
+            testset = Dataset(torch.tensor(samples[1000:]), torch.tensor(grid))
         
         
         mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
@@ -93,7 +101,7 @@ class NeuralOperatorModel(ABC):
         pass
 
     def save(self):
-        self.filename = f"data/{self.equation_name}/models/{self.projection_type}/N{self.N}" \
+        self.filename = f"../../data/{self.equation_name}/models/{self.finite_element_space}/{self.projection_type}/N{self.N}" \
                         f"/T{self.T}/D{self.network.D}_M{self.network.M}_samples{self.train_samples}_epoch{self.epoch}.pt"
 
         config = {
@@ -159,7 +167,7 @@ class BurgersModel(NeuralOperatorModel):
             mesh = f.load_mesh()
                     
         
-        model = BurgersModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], device=device)
+        model = BurgersModel(config["N"], config["M"], config["D"], config["depth"], T, config["projection_type"], config["train_samples"], device=device)
         model.network.load_state_dict(state_dict)
 
         return model
