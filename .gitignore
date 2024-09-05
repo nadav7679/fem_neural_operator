@@ -41,3 +41,4 @@ fem_neural_operator/data/KS/samples/N4096_CG3_nu0029_T12_samples1200.pt
 fem_neural_operator/data/KS/samples/N4096_CG3_nu0029_T13_samples1200.pt
 fem_neural_operator/data/KS/samples/N4096_CG3_nu0029_T14_samples1200.pt
 fem_neural_operator/data/KS/samples/N4096_CG3_nu0029_T15_samples1200.pt
+fem_neural_operator/data/KS/models/CG3/fourier/N256/T01/D640_M16_samples1000_epoch750.pt

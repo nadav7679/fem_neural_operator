@@ -150,7 +150,7 @@ if __name__ == "__main__":
     # # for d, loss, loss_fd, param in zip(D_arr, losses, losses_fd, parameters):
     # #     print(f"d: {d:03} | Parameters: {param:06} | Average loss: {loss:.04} | Firedrake loss: {loss_fd:.04}")
 
-    plt.title(f"RelL2 loss vs Channels $D$ - $N={config['N']}$")
+    # plt.title(f"RelL2 loss $D$ - $N={config['N']}$")
     plt.xlabel("D - channels")
     plt.ylabel("RelL2")
     plt.yscale('log')

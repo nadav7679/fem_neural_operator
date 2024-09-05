@@ -1,19 +1,20 @@
 import torch
-import firedrake as fd
+from firedrake import *
 import matplotlib.pyplot as plt
 
 from classes import *
 
 
-device = torch.device("cuda:4" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 def super_resolution(N1, N2, D, M):
-    with fd.CheckpointFile(f"data/KS/meshes/N{N2}.h5", "r") as file:
-        mesh = file.load_mesh()
+    T = "10"
+    model = KSModel.load(f"data/KS/models/CG3/fourier/N{N1}/T{T}/D{D}_M{M}_samples1000_epoch750.pt", N1, "01", device)
+
+    with CheckpointFile(f"data/KS/meshes/N{N2}.h5", "r") as file:
+        mesh = file.load_mesh()    
     
-    
-    model = KSModel.load(f"data/KS/models/fourier/N{N1}/T01/D{D}_M{M}_samples1000_epoch500.pt", N1, "01", device)
-    projection = ProjectionCoefficient.load(mesh, "KS", N2, model.L, M, "HER", "fourier", device)
+    projection = ProjectionCoefficient.load(mesh, "KS", N2, model.L, M, "CG3", "fourier", device)
     
     for projection_layer in model.network.layers:
         projection_layer.coeff = projection.coeff
@@ -21,12 +22,15 @@ def super_resolution(N1, N2, D, M):
         projection_layer.functions = projection.functions
     
     
-    data_path = f"data/KS/samples/N{N2}_HER_nu0029_T01_samples1200.pt"
-    
+    data_path = f"data/KS/samples/N{N2}_CG3_nu0029_T{T}_samples1200.pt"
     samples = torch.load(data_path).unsqueeze(2).to(device=device, dtype=torch.float32)
-    grid = torch.linspace(0, model.L, 2 * N2, device=device)
-    trainset = KSDataset(N2, torch.tensor(samples[:model.train_samples]), torch.tensor(grid))
-    testset = KSDataset(N2, torch.tensor(samples[model.train_samples:]), torch.tensor(grid))
+    
+    cg3 = FunctionSpace(mesh, "CG", 3)
+    x = assemble(interpolate(SpatialCoordinate(model.mesh)[0], cg3))
+    grid = torch.tensor(sorted(x.dat.data[:])).to(device=device, dtype=torch.float32)
+
+    trainset = Dataset(torch.tensor(samples[:model.train_samples]), torch.tensor(grid))
+    testset = Dataset(torch.tensor(samples[model.train_samples:]), torch.tensor(grid))
     
     mean_rel_l2_loss = lambda x, y: torch.mean(torch.norm(x - y, 2, dim=-1)/torch.norm(y, 2, dim=-1))
     
@@ -61,13 +65,13 @@ for i in range(5):
     for N2 in N2_range[i:]:
         losses.append(super_resolution(N1, N2, D, M))
 
-    plt.plot(N2_range[i:], losses, label=f"N={N1} Model")
+    plt.plot(N2_range[i:], losses, label=f"Model N={N1}")
 
 plt.xscale("log", base=2)
-plt.title("KS Super-Resolution")
+plt.title("KS Super-Resolution T=10")
 plt.grid()
-plt.ylabel("RelH1")
-plt.xlabel("$N$ of test dataset")
+plt.ylabel("RelL2")
+plt.xlabel("Resolution $N$ of tested dataset")
 plt.legend()
 
-plt.savefig("KS Super-Resolution")
+plt.savefig("KS Super-Resolution T10 750e")

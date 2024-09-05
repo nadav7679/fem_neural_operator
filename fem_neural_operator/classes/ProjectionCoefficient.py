@@ -149,7 +149,7 @@ class ProjectionCoefficient:
         else:
             raise ValueError("Only 'fourier' projection_type is supported")
 
-        if save_filename is not None:
+        if  is not None:
             torch.save({"coeff": self.coeff, "functions": self.functions}, save_filename)
 
 
